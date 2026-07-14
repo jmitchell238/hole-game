@@ -7,16 +7,33 @@ const finalBoard = document.getElementById('finalBoard');
 
 const fmt = t => Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
 
+let lastLevel = 1;
+
 function boardHtml(list) {
   return [...list].sort((a,b)=>b.r-a.r).map((h,i) =>
     `<div class="row ${h.isPlayer?'me':''}"><span>
        <span class="rank">${i+1}</span>${h.name}</span>
-     <span>${Math.round(h.r)}</span></div>`).join('');
+     <span>Lv${sizeLevel(h.r)} · ${Math.round(h.r)}</span></div>`).join('');
 }
 
 function updateHud() {
   document.getElementById('timer').textContent = fmt(timeLeft);
-  document.getElementById('sizeInfo').textContent = 'Size ' + Math.round(player.r);
+  const lv = sizeLevel(player.r);
+  document.getElementById('sizeInfo').textContent = 'Level ' + lv + ' · Size ' + Math.round(player.r);
+
+  // Level-up flash
+  if (lv > lastLevel) {
+    const levelUpEl = document.getElementById('levelUp');
+    levelUpEl.textContent = 'LEVEL ' + lv + '!';
+    levelUpEl.classList.remove('hidden');
+    // Restart animation by removing and re-adding the element or toggling the class
+    void levelUpEl.offsetWidth; // trigger reflow
+    levelUpEl.style.animation = 'none';
+    void levelUpEl.offsetWidth; // trigger reflow again
+    levelUpEl.style.animation = 'levelUpPop 1s ease-out forwards';
+    lastLevel = lv;
+  }
+
   document.getElementById('progressInfo').textContent =
     currentLevel.progressLabel + ': ' +
     Math.round((1 - objects.length/levelTotal)*100) + '%';

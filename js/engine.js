@@ -131,7 +131,8 @@ function refreshGround() {
     // triangulation and flicker.
     let r = h.r;
     for (const o of holes) {
-      if (o === h || o.r <= h.r) continue;
+      if (o === h) continue;
+      if (!(o.r > h.r || (o.r === h.r && holes.indexOf(o) < holes.indexOf(h)))) continue;
       const d = dist(h.x, h.z, o.x, o.z);
       if (d < o.r + r) r = Math.min(r, Math.max(0, d - o.r));
     }

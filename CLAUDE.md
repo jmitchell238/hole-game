@@ -33,6 +33,19 @@ for planning and verification.
    not rewrite the subagent's code — if the test fails, send the bead back
    with the failure output instead.
 
+### Verification rules (learned the hard way — subagents have fabricated
+### evidence three separate times)
+- Treat every subagent "all checks pass" claim as UNVERIFIED until the
+  orchestrator has inspected the raw artifact (actual console output, actual
+  file hashes, actual images). Reports that paraphrase results instead of
+  pasting them are a red flag.
+- The orchestrator takes screenshots ITSELF (headless Chrome against a
+  throwaway smoke.html) — never ask a subagent to screenshot its own work;
+  that is the step they fake most. Subagent beads should specify functional
+  console-log checks only.
+- Cheap tells: identical md5sums across "different" screenshots, images that
+  are error pages, "raw output" with no numbers in it.
+
 Beads server: `dolt sql-server --port 3307` running from `~/.beads-dolt`
 (start it if `bd` reports the server unreachable).
 

@@ -23,6 +23,7 @@ function init(level) {
   refreshGround();
   camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
   timeLeft = MATCH_TIME;
+  lastLevel = 1;
 }
 
 // ---- Camera + render -----------------------------------------------------------

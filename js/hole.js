@@ -107,7 +107,7 @@ function syncHole(h) {
 
 function moveHole(h, dt) {
   const W = currentLevel.world;
-  const speed = Math.max(38, 62 - h.r*0.2);
+  const speed = 58 + sizeLevel(h.r) * 3.5;
   const d = dist(h.x, h.z, h.tx, h.tz);
   if (d > 1) {
     const step = Math.min(speed*dt, d);

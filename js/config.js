@@ -8,6 +8,14 @@ const HOLE_DEPTH = 150;           // how deep the visible pit goes
 const BOT_NAMES = ['xX_Reaper','mossy','GulpLord','Tina','pixelpete','NovaCat',
   'bigmike','quinn','404notfound','senpai','DustBunny','Vortex'];
 
+const SIZE_TIERS = [12, 16, 21, 27, 35, 45, 58, 75, 95, 120];
+function sizeLevel(r) {
+  let lv = 1;
+  for (let i = 1; i < SIZE_TIERS.length; i++)
+    if (r >= SIZE_TIERS[i]) lv = i + 1;
+  return lv;
+}
+
 const rand = (a,b) => a + Math.random()*(b-a);
 const pick = arr => arr[(Math.random()*arr.length)|0];
 const clamp = (v,a,b) => v<a?a:v>b?b:v;
