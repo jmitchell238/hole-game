@@ -53,7 +53,8 @@ canvas.dragging { cursor: grabbing; }
   background: rgba(22,27,34,.95); border-top: 1px solid #30363d;
   padding-bottom: env(safe-area-inset-bottom); }
 #tabbar button { flex: 1; background: none; border: none; cursor: pointer;
-  color: #8b949e; font-size: 15px; font-weight: 700; padding: 13px 0 15px; }
+  color: #8b949e; font-size: 15px; font-weight: 700; padding: 13px 0 15px;
+  min-width: 0; overflow: hidden; white-space: nowrap; }
 #tabbar button.active { color: #58d68d; }
 .gold { color: #ffcf40; font-weight: 800; font-size: 18px; margin: 2px 0 10px; }
 .storeHead { margin: 16px 0 8px; font-size: 13px; letter-spacing: 1px;
@@ -105,4 +106,5 @@ canvas.dragging { cursor: grabbing; }
   #timer { font-size: 26px; }
   .page h1 { font-size: 30px; }
   .menu p { font-size: 14px; }
+  #tabbar button { font-size: 13px; }
 }

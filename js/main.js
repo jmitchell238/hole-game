@@ -141,6 +141,11 @@ buildLevelSelect();
 updatePlayTab();
 updateGold();
 
+// Debug unlock via URL parameter
+if (location.search.includes('debug=1')) {
+  unlockAllCosmetics();
+}
+
 // Installable PWA: cache the game for offline play (needs HTTPS, so this is
 // a no-op when opening the file directly).
 if ('serviceWorker' in navigator &&

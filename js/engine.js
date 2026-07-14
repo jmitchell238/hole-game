@@ -16,14 +16,22 @@ const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
 // upright), centered and letterboxed — it re-fits itself on rotation.
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };
 function layoutFrame() {
-  const W = innerWidth, H = innerHeight;
+  let W = innerWidth, H = innerHeight;
+  let offsetX = 0, offsetY = 0;
+  // Use visualViewport if available (e.g., on iOS with zoom/URL-bar toggling)
+  if (window.visualViewport) {
+    W = visualViewport.width;
+    H = visualViewport.height;
+    offsetX = visualViewport.offsetLeft;
+    offsetY = visualViewport.offsetTop;
+  }
   const landscape = W >= H;
   const ratio = landscape ? 16/9 : 9/16;
   const fw = Math.min(W, H * ratio);
   FRAME.w = Math.round(fw);
   FRAME.h = Math.round(fw / ratio);
-  FRAME.x = Math.round((W - FRAME.w) / 2);
-  FRAME.y = Math.round((H - FRAME.h) / 2);
+  FRAME.x = Math.round((W - FRAME.w) / 2) + offsetX;
+  FRAME.y = Math.round((H - FRAME.h) / 2) + offsetY;
   frameEl.style.width = FRAME.w + 'px';
   frameEl.style.height = FRAME.h + 'px';
   frameEl.style.left = FRAME.x + 'px';

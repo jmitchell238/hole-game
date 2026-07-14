@@ -102,3 +102,8 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 addEventListener('resize', layoutFrame);
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', layoutFrame);
+  visualViewport.addEventListener('scroll', layoutFrame);
+}
+addEventListener('orientationchange', layoutFrame);

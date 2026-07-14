@@ -123,10 +123,15 @@ controlsSel.onchange = () => {
 };
 // Debug helper: grant every color and design so they can be previewed in-game.
 // "Reset all progress" below undoes it.
-document.getElementById('unlockAllBtn').onclick = () => {
+function unlockAllCosmetics() {
   for (const item of [...HOLE_COLORS, ...HOLE_DESIGNS])
     if (!SAVE.owned.includes(item.id)) SAVE.owned.push(item.id);
   persistSave();
+  updateGold();
+}
+
+document.getElementById('unlockAllBtn').onclick = () => {
+  unlockAllCosmetics();
   showTab('store');   // straight to the Store to try them on
 };
 document.getElementById('resetBtn').onclick = () => {
