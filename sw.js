@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'hole-royale-v5';
+const CACHE = 'hole-royale-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -23,6 +23,8 @@ const ASSETS = [
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './art/Black_Cat_Transparent.png',
+  './art/black_white_cat.png',
 ];
 
 self.addEventListener('install', e => {

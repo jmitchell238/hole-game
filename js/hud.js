@@ -62,9 +62,14 @@ function cosmeticCard(item, kind) {
   const equipped = kind === 'color' ? SAVE.color === item.id : SAVE.design === item.id;
   const card = document.createElement('button');
   card.className = 'card' + (equipped ? ' equipped' : '');
-  const face = kind === 'color'
-    ? `<span class="swatch" style="background:${item.hex}"></span>`
-    : `<span class="big">${item.emoji}</span>`;
+  let face;
+  if (kind === 'color') {
+    face = `<span class="swatch" style="background:${item.hex}"></span>`;
+  } else if (item.img) {
+    face = `<img src="${item.img}" class="card-img" alt="${item.name}" />`;
+  } else {
+    face = `<span class="big">${item.emoji}</span>`;
+  }
   const state = equipped ? 'Equipped' : owned ? 'Tap to equip'
     : `<span class="price">${item.cost} 🪙</span>`;
   card.innerHTML = `${face}<div>${item.name}</div><div class="state">${state}</div>`;

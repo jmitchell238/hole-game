@@ -90,11 +90,139 @@ function buildTornado() {
   return g;
 }
 
+// Flood-fill helper: erase checkerboard background starting from corners
+function floodFillCheckboard(ctx, width, height, tolerance) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  // Sample colors from the four corners (assume checkerboard)
+  const cornerColors = [
+    [data[0], data[1], data[2]],
+    [data[4*(width-1)], data[4*(width-1)+1], data[4*(width-1)+2]],
+    [data[4*(width*(height-1))], data[4*(width*(height-1))+1], data[4*(width*(height-1))+2]],
+  ];
+
+  const visited = new Uint8Array(width * height);
+
+  function colorDistance(c1, c2) {
+    return Math.max(Math.abs(c1[0]-c2[0]), Math.abs(c1[1]-c2[1]), Math.abs(c1[2]-c2[2]));
+  }
+
+  function floodFill(startX, startY, targetColor) {
+    const stack = [[startX, startY]];
+
+    while (stack.length > 0) {
+      const [x, y] = stack.pop();
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+      const idx = y * width + x;
+      if (visited[idx]) continue;
+      visited[idx] = 1;
+
+      const pixelIdx = idx * 4;
+      const pixelColor = [data[pixelIdx], data[pixelIdx+1], data[pixelIdx+2]];
+
+      if (colorDistance(pixelColor, targetColor) <= tolerance) {
+        data[pixelIdx+3] = 0;  // Set alpha to 0
+        stack.push([x+1, y], [x-1, y], [x, y+1], [x, y-1]);
+      }
+    }
+  }
+
+  for (const cornerColor of cornerColors) {
+    floodFill(0, 0, cornerColor);
+    floodFill(width-1, 0, cornerColor);
+    floodFill(0, height-1, cornerColor);
+    floodFill(width-1, height-1, cornerColor);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// Build an image-based skin: load PNG, optionally remove checkerboard background and erase circle,
+// create a textured plane scaled to fit the hole. Circle parameters (cx, cy, rf) are measured from PNG.
+// processImage: if true, apply flood-fill (checkerboard) + circle erase; if false, use as-is.
+function buildSkin(url, cx, cy, rf, processImage) {
+  const g = new THREE.Group();
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    // Downscale image to 512x512 canvas for texture
+    const texSize = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = texSize;
+    canvas.height = texSize;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Draw scaled image
+    ctx.drawImage(img, 0, 0, texSize, texSize);
+
+    if (processImage) {
+      // Remove checkerboard background via flood-fill from corners (tolerance ~12)
+      floodFillCheckboard(ctx, texSize, texSize, 12);
+
+      // Erase the black circle to transparency
+      const circleCenterX = cx * texSize;
+      const circleCenterY = cy * texSize;
+      const circleRadius = rf * texSize;
+
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(circleCenterX, circleCenterY, circleRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // If !processImage, use image as-is (already transparent with ring cutout)
+
+    // Create texture from processed canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = 4;
+
+    // Create material and plane
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+
+    const planeScale = 1 / rf;  // Scale plane so inner/outer ring maps to unit radius
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(planeScale, planeScale),
+      material
+    );
+
+    // Rotate to lie flat on ground
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = 0.01;  // Tiny lift to avoid z-fighting
+
+    // Offset plane so circle center lands at hole center (0,0)
+    // Image point (cx, cy) should map to plane point (0, 0)
+    // PlaneGeometry spans from -planeScale/2 to planeScale/2
+    const offsetX = (0.5 - cx) * planeScale;
+    const offsetZ = (0.5 - cy) * planeScale;
+    plane.position.x = offsetX;
+    plane.position.z = offsetZ;
+
+    g.add(plane);
+  };
+  img.src = url;
+
+  // The group returns immediately; plane attaches when image loads
+  g.userData.spin = 0;  // Stay upright, don't rotate
+  return g;
+}
+
 const HOLE_DESIGNS = [
   { id: 'tornado', name: 'Tornado', emoji: '🌪️', cost: 100, build: buildTornado },
   { id: 'dog',     name: 'Dog',     emoji: '🐶', cost: 150, build: buildDog },
   { id: 'cat',     name: 'Cat',     emoji: '🐱', cost: 200, build: buildCat },
   { id: 'dragon',  name: 'Dragon',  emoji: '🐲', cost: 250, build: buildDragon },
+  // Image-based skins: measured circle params (cx, cy, rf) from PNG
+  { id: 'blackcat', name: 'Black Cat', img: 'art/Black_Cat_Transparent.png', cost: 200,
+    build: () => buildSkin('art/Black_Cat_Transparent.png', 0.497608, 0.692185, 0.274322, false) },
+  { id: 'tuxedocat', name: 'Tuxedo Cat', img: 'art/black_white_cat.png', cost: 200,
+    build: () => buildSkin('art/black_white_cat.png', 0.499203, 0.674242, 0.362041, true) },
 ];
 
 function equippedColor() {

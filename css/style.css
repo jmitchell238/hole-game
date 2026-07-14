@@ -67,6 +67,8 @@ canvas.dragging { cursor: grabbing; }
 .card .swatch { display: block; width: 34px; height: 34px; border-radius: 50%;
   margin: 0 auto 6px; }
 .card .big { font-size: 30px; line-height: 40px; }
+.card-img { display: block; width: 56px; height: 56px; margin: 0 auto 6px;
+  object-fit: contain; }
 .card .state { font-size: 11px; opacity: .75; margin-top: 3px; }
 .card .price { color: #ffcf40; }
 .card.equipped { border-color: #58d68d; box-shadow: 0 0 0 1px #58d68d; }
