@@ -221,8 +221,29 @@ const HOLE_DESIGNS = [
   // Image-based skins: measured circle params (cx, cy, rf) from PNG
   { id: 'blackcat', name: 'Black Cat', img: 'art/Black_Cat_Transparent.png', cost: 200,
     build: () => buildSkin('art/Black_Cat_Transparent.png', 0.497608, 0.692185, 0.274322, false) },
-  { id: 'tuxedocat', name: 'Tuxedo Cat', img: 'art/black_white_cat.png', cost: 200,
-    build: () => buildSkin('art/black_white_cat.png', 0.499203, 0.674242, 0.362041, true) },
+  { id: 'tuxedocat', name: 'Tuxedo Cat', img: 'art/fixed/black_white_cat.png', cost: 200,
+    build: () => buildSkin('art/fixed/black_white_cat.png', 0.498804, 0.624801, 0.257576, false) },
+  // New image-based skins from art/fixed/
+  { id: 'fireskin', name: 'Ring of Fire', img: 'art/fixed/fire.png', cost: 150,
+    build: () => buildSkin('art/fixed/fire.png', 0.500399, 0.511962, 0.202352, false) },
+  { id: 'iceskin', name: 'Frost Ring', img: 'art/fixed/ice.png', cost: 150,
+    build: () => buildSkin('art/fixed/ice.png', 0.502392, 0.506778, 0.228270, false) },
+  { id: 'lavaskin', name: 'Molten Core', img: 'art/fixed/lava.png', cost: 150,
+    build: () => buildSkin('art/fixed/lava.png', 0.501595, 0.506380, 0.228070, false) },
+  { id: 'boltskin', name: 'Thunderbolt', img: 'art/fixed/lightening.png', cost: 150,
+    build: () => buildSkin('art/fixed/lightening.png', 0.500000, 0.499203, 0.244418, false) },
+  { id: 'twisterskin', name: 'Twister', img: 'art/fixed/tornado.png', cost: 150,
+    build: () => buildSkin('art/fixed/tornado.png', 0.500000, 0.512759, 0.200957, false) },
+  { id: 'voidskin', name: 'Black Hole', img: 'art/fixed/black_hole.png', cost: 250,
+    build: () => buildSkin('art/fixed/black_hole.png', 0.500000, 0.512360, 0.200758, false) },
+  { id: 'dinoskin', name: 'Dino', img: 'art/fixed/dinosaure_green.png', cost: 200,
+    build: () => buildSkin('art/fixed/dinosaure_green.png', 0.495614, 0.574561, 0.244019, false) },
+  { id: 'pupskin', name: 'Puppy', img: 'art/fixed/dog_one.png', cost: 200,
+    build: () => buildSkin('art/fixed/dog_one.png', 0.497608, 0.598086, 0.223684, false) },
+  { id: 'heelerskin', name: 'Blue Heeler', img: 'art/fixed/dog_blue_heeler_real.png', cost: 200,
+    build: () => buildSkin('art/fixed/dog_blue_heeler_real.png', 0.493222, 0.625997, 0.222289, false) },
+  { id: 'whaleskin', name: 'Whale', img: 'art/fixed/whale_blue.png', cost: 200,
+    build: () => buildSkin('art/fixed/whale_blue.png', 0.495614, 0.577352, 0.239434, false) },
 ];
 
 function equippedColor() {
