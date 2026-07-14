@@ -110,6 +110,14 @@ shadowsChk.onchange = () => {
   SAVE.shadows = shadowsChk.checked;
   persistSave();
 };
+// Debug helper: grant every color and design so they can be previewed in-game.
+// "Reset all progress" below undoes it.
+document.getElementById('unlockAllBtn').onclick = () => {
+  for (const item of [...HOLE_COLORS, ...HOLE_DESIGNS])
+    if (!SAVE.owned.includes(item.id)) SAVE.owned.push(item.id);
+  persistSave();
+  showTab('store');   // straight to the Store to try them on
+};
 document.getElementById('resetBtn').onclick = () => {
   if (!confirm('Reset gold, purchases, and settings?')) return;
   try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
