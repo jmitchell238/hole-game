@@ -2,8 +2,10 @@
 
 A hole.io-style browser game — steer your hole around the map and swallow
 everything that fits, growing as you go. Biggest hole when the timer hits
-0:00 wins. No build step, no dependencies to install (Three.js loads from a
-CDN); just open the file in a browser.
+0:00 wins. Every match rolls a brand-new procedurally generated map — grid
+size, block size, road width, districts, and spawn points all vary. No build
+step, no dependencies to install (Three.js loads from a CDN); just open the
+file in a browser.
 
 ## Play
 

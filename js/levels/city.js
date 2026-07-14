@@ -1,4 +1,5 @@
-// The City level.
+// The City level. Every match rolls a brand-new map: grid size, block size,
+// road width, district layout, and spawn points are all generated fresh.
 //
 // ---- HOW TO ADD A NEW LEVEL (desert, medieval, winter, dinosaur, island…) ----
 // 1. Copy this file to js/levels/<name>.js and add a <script> tag for it in
@@ -10,42 +11,81 @@
 //    is available to every level.
 // 4. Call registerLevel({...}) with:
 //      id / name        – key + label shown on the level-select buttons
-//      world            – half-width of the square map
 //      sky, fog, hemi, sunColor – atmosphere (fog: [near, far],
 //                         hemi: [skyColor, groundColor, intensity])
 //      soil             – [rimColor, deepColor] for the pit walls
 //      progressLabel    – HUD text, e.g. 'Desert devoured'
-//      playerSpawn      – [x, z]
-//      botSpawns()      – array of [x, z] for the 7 bots
-//      createGroundTexture() – returns the map's ground THREE texture
-//                         (called once per match, before populate)
-//      populate(addProp)     – place every prop on the map
+//      generate()       – called at the start of every match: roll the random
+//                         layout, then set this.world (half-width of the map),
+//                         this.playerSpawn ([x,z]), and this.botSpawns
+//                         (array of [x,z] for the 7 bots)
+//      createGroundTexture() – draw the generated map's ground THREE texture
+//      populate(addProp)     – place every prop on the generated map
 // The level select menu picks up the new level automatically.
 // -------------------------------------------------------------------------------
 (function () {
 
-const GRID_N = 5;
-const BLOCK  = 240;
-const ROAD   = 50;
-const P      = BLOCK + ROAD;
-const WORLD  = (GRID_N * P + ROAD) / 2;
-
-// Downtown core rings the central park; suburbs and parks spread outward.
+// Rolled fresh by generate() at the start of every match.
+let GRID_N, BLOCK, ROAD, P, WORLD;
 let blockPlan = [];
+let spawnI, spawnJ;             // which block the player spawns in (a park)
+
+const blockOrigin = (i, j) => [ -WORLD + ROAD + i*P, -WORLD + ROAD + j*P ];
+
+// District plan: one downtown cluster (two on big maps) seeded at random,
+// parks scattered through the rest, suburbs everywhere else. The player's
+// spawn block is always a park, somewhere near the middle.
 function planCity() {
+  const midIdx = n => (n % 2) ? (n-1)/2 : n/2 - (Math.random() < 0.5 ? 1 : 0);
+  spawnI = midIdx(GRID_N);
+  spawnJ = midIdx(GRID_N);
+
+  const seedCount = (GRID_N >= 6 || Math.random() < 0.4) ? 2 : 1;
+  const seeds = [];
+  while (seeds.length < seedCount) {
+    const si = (Math.random()*GRID_N)|0, sj = (Math.random()*GRID_N)|0;
+    if (si === spawnI && sj === spawnJ) continue;
+    seeds.push([si, sj]);
+  }
+
   blockPlan = [];
   for (let i = 0; i < GRID_N; i++) {
     blockPlan[i] = [];
     for (let j = 0; j < GRID_N; j++) {
-      if (i === 2 && j === 2) { blockPlan[i][j] = 'park'; continue; }
-      const ring = Math.max(Math.abs(i-2), Math.abs(j-2));
-      blockPlan[i][j] = ring === 1
-        ? (Math.random() < 0.9 ? 'downtown' : 'park')
+      if (i === spawnI && j === spawnJ) { blockPlan[i][j] = 'park'; continue; }
+      const nearSeed = seeds.some(([si, sj]) =>
+        Math.max(Math.abs(i-si), Math.abs(j-sj)) <= 1);
+      blockPlan[i][j] = nearSeed
+        ? (Math.random() < 0.85 ? 'downtown' : 'park')
         : (Math.random() < 0.2 ? 'park' : 'residential');
     }
   }
 }
-const blockOrigin = (i, j) => [ -WORLD + ROAD + i*P, -WORLD + ROAD + j*P ];
+
+// Bots start on random intersections, none right on top of the player.
+function pickBotSpawns(px, pz) {
+  const pts = [];
+  for (let k = 0; k <= GRID_N; k++) for (let l = 0; l <= GRID_N; l++) {
+    const x = -WORLD + k*P + ROAD/2, z = -WORLD + l*P + ROAD/2;
+    if (dist(x, z, px, pz) < P*1.2) continue;
+    pts.push([x, z]);
+  }
+  pts.sort(() => Math.random() - 0.5);
+  return pts.slice(0, 7);
+}
+
+function generate() {
+  GRID_N = 4 + ((Math.random()*3)|0);            // 4–6 blocks per side
+  BLOCK  = Math.round(rand(215, 265));
+  ROAD   = Math.round(rand(42, 62));
+  P      = BLOCK + ROAD;
+  WORLD  = (GRID_N * P + ROAD) / 2;
+  planCity();
+  this.world = WORLD;
+  const [x0, z0] = blockOrigin(spawnI, spawnJ);
+  this.playerSpawn = [x0 + BLOCK/2, z0 + BLOCK/2];
+  this.botSpawns = pickBotSpawns(this.playerSpawn[0], this.playerSpawn[1]);
+}
 
 // The city ground: streets, lane dashes, crosswalks, sidewalks, lawns, plazas.
 function cityGroundTexture() {
@@ -157,8 +197,8 @@ function populate(addProp) {
       addProp('hydrant', ...inBlock(rand(-90, 90), 100));
       for (let k = 0; k < 6; k++)
         addProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
-    } else {  // park — the center block stays clear for the player spawn
-      const isSpawn = (i === 2 && j === 2);
+    } else {  // park — the spawn block stays clear for the player
+      const isSpawn = (i === spawnI && j === spawnJ);
       if (!isSpawn) addProp('fountain', cx, cz, 0);
       for (const f of [-55, 55]) {
         addProp('fence', cx + f, cz - 88, 0);
@@ -215,23 +255,15 @@ function populate(addProp) {
 registerLevel({
   id: 'city',
   name: 'City',
-  world: WORLD,
   sky: 0xa8d8f0,
   fog: [650, 1900],
   hemi: [0xcfe8ff, 0x7a9a6a, 0.85],
   sunColor: 0xfff2d8,
   soil: ['#4a4038', '#241f1a'],
   progressLabel: 'City devoured',
-  playerSpawn: [0, 0],
-  botSpawns() {
-    const corners = [[1,1],[1,4],[4,1],[4,4],[1,2],[3,4],[4,2]];
-    return corners.map(([gi, gj]) =>
-      [-WORLD + gi*P + ROAD/2, -WORLD + gj*P + ROAD/2]);
-  },
-  createGroundTexture() {
-    planCity();               // populate() reads the block plan drawn here
-    return cityGroundTexture();
-  },
+  // world, playerSpawn, and botSpawns are rolled by generate() every match.
+  generate,
+  createGroundTexture: cityGroundTexture,
   populate,
 });
 

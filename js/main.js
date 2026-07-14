@@ -9,16 +9,18 @@ function init(level) {
   holes = [];
   applyEnvironment(level);
   setPitStyle(level);
+  level.generate();          // roll this match's random layout
   buildGround(level);
   level.populate(addProp);
   levelTotal = objects.length;
   player = makeHole(level.playerSpawn[0], level.playerSpawn[1], 'You', true);
   holes.push(player);
   const names = BOT_NAMES.slice().sort(() => Math.random()-0.5);
-  const spawns = level.botSpawns();
+  const spawns = level.botSpawns;
   for (let i = 0; i < spawns.length && i < names.length; i++)
     holes.push(makeHole(spawns[i][0], spawns[i][1], names[i], false));
   refreshGround();
+  camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
   timeLeft = MATCH_TIME;
 }
 
