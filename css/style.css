@@ -1,0 +1,43 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117;
+  font-family: system-ui, Segoe UI, Arial, sans-serif; color: #e6edf3; }
+canvas { display: block; cursor: grab; }
+canvas.dragging { cursor: grabbing; }
+#tags { position: fixed; inset: 0; pointer-events: none; }
+.tag { position: absolute; transform: translate(-50%, -100%);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+#hud { position: fixed; top: 12px; left: 14px; pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+#timer { font-size: 34px; font-weight: 800; }
+#sizeInfo { font-size: 15px; opacity: .95; }
+#progressInfo { font-size: 13px; opacity: .85; }
+#hint { font-size: 12px; opacity: .8; margin-top: 4px; }
+#board { position: fixed; top: 12px; right: 12px; width: 188px;
+  background: rgba(22,27,34,.82); border: 1px solid #30363d; border-radius: 10px;
+  padding: 10px 12px; font-size: 13px; }
+#board h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px;
+  text-transform: uppercase; opacity: .7; }
+.row { display: flex; justify-content: space-between; padding: 3px 0; }
+.row.me { color: #58d68d; font-weight: 700; }
+.rank { opacity: .55; width: 18px; display: inline-block; }
+.menu { position: fixed; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  background: rgba(13,17,23,.9); z-index: 10; }
+.menu h1 { font-size: 52px; margin: 0 0 6px; }
+.menu p { opacity: .82; margin: 4px 0 22px; max-width: 470px; }
+.menu button { cursor: pointer; font-size: 18px; font-weight: 700;
+  padding: 12px 30px; border: none; border-radius: 30px;
+  background: #58d68d; color: #0d1117; margin: 6px; min-width: 200px; }
+.menu button:hover { background: #6fe3a0; }
+.menu button.secondary { background: #30363d; color: #e6edf3; }
+.menu button.secondary:hover { background: #3d444d; }
+.hidden { display: none !important; }
+#finalBoard { text-align: left; min-width: 260px; margin-bottom: 20px; }
+#finalBoard .row { padding: 5px 0; border-bottom: 1px solid #21262d; }
+#levelSelect { display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 14px; }
+#levelSelect button { font-size: 14px; padding: 8px 18px; min-width: 0;
+  margin: 0; background: #30363d; color: #e6edf3; }
+#levelSelect button:hover { background: #3d444d; }
+#levelSelect button.active { background: #58d68d; color: #0d1117; }
+#levelSelect button.active:hover { background: #6fe3a0; }
