@@ -3,14 +3,37 @@
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.appendChild(renderer.domElement);
+const frameEl = document.getElementById('frame');
+frameEl.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 1, 6000);
+const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
+
+// The game lives in a fixed 16:9 frame (9:16 when the device is held
+// upright), centered and letterboxed — it re-fits itself on rotation.
+const FRAME = { w: 0, h: 0, x: 0, y: 0 };
+function layoutFrame() {
+  const W = innerWidth, H = innerHeight;
+  const landscape = W >= H;
+  const ratio = landscape ? 16/9 : 9/16;
+  const fw = Math.min(W, H * ratio);
+  FRAME.w = Math.round(fw);
+  FRAME.h = Math.round(fw / ratio);
+  FRAME.x = Math.round((W - FRAME.w) / 2);
+  FRAME.y = Math.round((H - FRAME.h) / 2);
+  frameEl.style.width = FRAME.w + 'px';
+  frameEl.style.height = FRAME.h + 'px';
+  frameEl.style.left = FRAME.x + 'px';
+  frameEl.style.top = FRAME.y + 'px';
+  renderer.setSize(FRAME.w, FRAME.h);
+  camera.aspect = FRAME.w / FRAME.h;
+  camera.fov = landscape ? 55 : 70;      // wider lens when held upright
+  camera.updateProjectionMatrix();
+}
+layoutFrame();
 
 const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7a9a6a, 0.85);
 scene.add(hemi);
@@ -70,8 +93,18 @@ function refreshGround() {
   shape.lineTo(W, W);
   shape.lineTo(-W, W);
   for (const h of holes) {
+    // While a bigger hole rolls over this one, shrink this one's cutout so
+    // the two circles stay tangent — intersecting cutouts break the ground
+    // triangulation and flicker.
+    let r = h.r;
+    for (const o of holes) {
+      if (o === h || o.r <= h.r) continue;
+      const d = dist(h.x, h.z, o.x, o.z);
+      if (d < o.r + r) r = Math.min(r, Math.max(0, d - o.r));
+    }
+    if (r < 0.5) continue;
     const p = new THREE.Path();
-    p.absarc(h.x, -h.z, h.r, 0, Math.PI*2, true);
+    p.absarc(h.x, -h.z, r, 0, Math.PI*2, true);
     shape.holes.push(p);
   }
   const geo = new THREE.ShapeGeometry(shape, 32);

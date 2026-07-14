@@ -2,6 +2,7 @@
 
 function init(level) {
   currentLevel = level;
+  renderer.shadowMap.enabled = SAVE.shadows;
   document.getElementById('tags').innerHTML = '';
   for (const h of holes) removeHole(h);
   for (const o of objects) scene.remove(o.mesh);
@@ -37,6 +38,10 @@ function render() {
   sun.position.set(player.x - 260, 520, player.z + 180);
   sun.target.position.set(player.x, 0, player.z);
 
+  // Spin the equipped hole design.
+  if (player.deco)
+    player.deco.rotation.y = performance.now()/1000 * player.deco.userData.spin;
+
   renderer.render(scene, camera);
 
   const v = new THREE.Vector3();
@@ -44,16 +49,29 @@ function render() {
     v.set(h.x, 6, h.z).project(camera);
     if (v.z > 1) { h.tag.style.display = 'none'; continue; }
     h.tag.style.display = 'block';
-    h.tag.style.left = (v.x*0.5+0.5)*innerWidth + 'px';
-    h.tag.style.top  = (-v.y*0.5+0.5)*innerHeight + 'px';
+    h.tag.style.left = (v.x*0.5+0.5)*FRAME.w + 'px';
+    h.tag.style.top  = (-v.y*0.5+0.5)*FRAME.h + 'px';
   }
 }
 
 // ---- Flow -----------------------------------------------------------------------
+const pauseBtn = document.getElementById('pauseBtn');
 document.getElementById('startBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = togglePause;
 document.getElementById('restartBtn').onclick = () => {
   paused = false; pauseMenu.classList.add('hidden'); start();
+};
+pauseBtn.onclick = togglePause;
+
+// Fullscreen (with the webkit fallback older iPads need).
+document.getElementById('fsBtn').onclick = () => {
+  const el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el);
+  }
 };
 
 function togglePause() {
@@ -66,6 +84,7 @@ function togglePause() {
 function start() {
   init(LEVELS[selectedLevelId]); dragging = false;
   overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
+  pauseBtn.classList.remove('hidden');
   running = true; paused = false;
   last = performance.now();
   requestAnimationFrame(loop);
@@ -77,18 +96,31 @@ function endMatch() {
   const alive = holes.slice();
   const ranked = [...alive].sort((a,b)=>b.r-a.r);
   const rank = player.eaten ? 0 : ranked.indexOf(player)+1;
-  overlay.querySelector('h1').textContent =
+
+  // Match reward: gold for size, bonus for the podium.
+  const reward = player.eaten
+    ? Math.max(3, Math.round(player.r/4))
+    : Math.max(5, Math.round(player.r/2)) +
+      (rank === 1 ? 25 : rank === 2 ? 15 : rank === 3 ? 10 : 0);
+  SAVE.gold += reward;
+  persistSave();
+  updateGold();
+
+  document.getElementById('playPage').querySelector('h1').textContent =
     player.eaten ? 'Swallowed! 💀'
     : rank === 1 && alive.length === 1 ? 'You ate everyone! 🏆'
     : rank === 1 ? 'You win! 🏆'
     : `You placed #${rank}`;
-  overlay.querySelector('p').textContent = player.eaten
+  document.getElementById('playText').textContent = (player.eaten
     ? 'A bigger hole got you. Watch the leaderboard and keep your distance.'
     : `Final size ${Math.round(player.r)} · ${currentLevel.progressLabel} ` +
-      Math.round((1 - objects.length/levelTotal)*100) + '%.';
+      Math.round((1 - objects.length/levelTotal)*100) + '%.')
+    + ` You earned ${reward} 🪙.`;
   finalBoard.innerHTML = boardHtml(alive);
   finalBoard.classList.remove('hidden');
   document.getElementById('startBtn').textContent = 'Play again';
+  pauseBtn.classList.add('hidden');
+  showTab('play');
   overlay.classList.remove('hidden');
 }
 
@@ -104,3 +136,11 @@ function loop(now) {
 // Default to the first registered level and show the choices.
 selectedLevelId = Object.keys(LEVELS)[0];
 buildLevelSelect();
+updatePlayTab();
+updateGold();
+
+// Installable PWA: cache the game for offline play (needs HTTPS, so this is
+// a no-op when opening the file directly).
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost'))
+  navigator.serviceWorker.register('sw.js');

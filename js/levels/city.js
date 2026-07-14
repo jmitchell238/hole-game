@@ -75,7 +75,7 @@ function pickBotSpawns(px, pz) {
 }
 
 function generate() {
-  GRID_N = 4 + ((Math.random()*3)|0);            // 4–6 blocks per side
+  GRID_N = 5 + ((Math.random()*2)|0);            // 5–6 blocks per side
   BLOCK  = Math.round(rand(215, 265));
   ROAD   = Math.round(rand(42, 62));
   P      = BLOCK + ROAD;
@@ -150,12 +150,22 @@ function populate(addProp) {
     addProp('streetlight', cx, cz + (BLOCK/2 - 8), -Math.PI/2);
     addProp('trashcan', cx + rand(-90, 90), cz - (BLOCK/2 - 8));
     addProp('trashcan', cx + (BLOCK/2 - 8), cz + rand(-90, 90));
-    for (let k = 0; k < 4; k++) {
+    addProp('trashcan', cx - (BLOCK/2 - 8), cz + rand(-90, 90));
+    addProp('mailbox', cx + rand(-90, 90), cz + (BLOCK/2 - 8));
+    for (const t of [-1, 1]) {                       // sidewalk trees
+      addProp('tree', cx + t*BLOCK/4, cz - (BLOCK/2 - 8));
+      addProp('tree', cx + t*BLOCK/4, cz + (BLOCK/2 - 8));
+    }
+    for (let k = 0; k < 8; k++) {
       const edge = Math.random() < 0.5 ? -1 : 1;
       if (Math.random() < 0.5)
         addProp('person', cx + rand(-100, 100), cz + edge*(BLOCK/2 - 8));
       else
         addProp('person', cx + edge*(BLOCK/2 - 8), cz + rand(-100, 100));
+    }
+    for (let k = 0; k < 2; k++) {
+      const edge = Math.random() < 0.5 ? -1 : 1;
+      addProp('dog', cx + rand(-95, 95), cz + edge*(BLOCK/2 - 8));
     }
 
     if (type === 'downtown') {
@@ -164,15 +174,21 @@ function populate(addProp) {
       addProp('shop', ...inBlock(-80, -80));
       addProp('shop', ...inBlock(80, -80), Math.PI/2);
       addProp('shop', ...inBlock(80, 80), Math.PI);
-      for (let k = 0; k < 9; k++)
+      for (let k = 0; k < 15; k++)
         addProp('person', ...inBlock(rand(-40, 100),
           (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
       addProp('hydrant', ...inBlock(-100, 0));
       addProp('hydrant', ...inBlock(100, 30));
       addProp('bench', ...inBlock(-30, 40), Math.PI);
       addProp('bench', ...inBlock(30, 40), Math.PI);
-      addProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      addProp('bench', ...inBlock(-30, -40), 0);
+      addProp('bench', ...inBlock(30, -40), 0);
+      addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      addProp('dog', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      for (let k = 0; k < 3; k++)
+        addProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
       addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
     } else if (type === 'residential') {
       // Six buildings in two street-facing rows with fenced front yards;
@@ -192,11 +208,15 @@ function populate(addProp) {
       addProp('tree', ...inBlock(96, 0));
       addProp('tree', ...inBlock(-33, 0));
       addProp('tree', ...inBlock(33, 0));
-      for (let k = 0; k < 7; k++)
+      for (let k = 0; k < 10; k++)
         addProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));
       addProp('hydrant', ...inBlock(rand(-90, 90), 100));
-      for (let k = 0; k < 6; k++)
+      addProp('mailbox', ...inBlock(rand(-90, 90), -100));
+      addProp('mailbox', ...inBlock(rand(-90, 90), 100));
+      for (let k = 0; k < 9; k++)
         addProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
     } else {  // park — the spawn block stays clear for the player
       const isSpawn = (i === spawnI && j === spawnJ);
       if (!isSpawn) addProp('fountain', cx, cz, 0);
@@ -206,22 +226,27 @@ function populate(addProp) {
         addProp('fence', cx - 88, cz + f, Math.PI/2);
         addProp('fence', cx + 88, cz + f, Math.PI/2);
       }
-      for (let k = 0; k < 11; k++) {
+      for (let k = 0; k < 15; k++) {
         const dx = rand(-78, 78), dz = rand(-78, 78);
         if (isSpawn && Math.hypot(dx, dz) < 55) continue;
         if (!isSpawn && Math.hypot(dx, dz) < 26) continue;
         addProp('tree', ...inBlock(dx, dz));
       }
-      for (let k = 0; k < 8; k++) {
+      for (let k = 0; k < 12; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
         addProp('bush', ...inBlock(dx, dz));
+      }
+      for (let k = 0; k < 3; k++) {
+        const dx = rand(-85, 85), dz = rand(-85, 85);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        addProp('dog', ...inBlock(dx, dz));
       }
       addProp('bench', ...inBlock(rand(-60, 60), -75), 0);
       addProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
       addProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
       addProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
-      for (let k = 0; k < 10; k++) {
+      for (let k = 0; k < 14; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
         addProp('person', ...inBlock(dx, dz));
@@ -229,7 +254,7 @@ function populate(addProp) {
     }
 
     // Cars parallel-parked along this block's curbs.
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 5; k++) {
       const side = (Math.random()*4)|0, off = BLOCK/2 + 9, along = rand(-95, 95);
       if (side === 0)      addProp('car', cx + along, cz - off, 0);
       else if (side === 1) addProp('car', cx + along, cz + off, 0);
@@ -241,14 +266,17 @@ function populate(addProp) {
   // Traffic on the streets themselves.
   for (let k = 0; k <= GRID_N; k++) {
     const rc = -WORLD + k*P + ROAD/2;
-    for (let n = 0; n < 8; n++) {
+    for (let n = 0; n < 12; n++) {
       const along = rand(-WORLD + 60, WORLD - 60);
       const lane = (Math.random() < 0.5 ? -1 : 1) * 12;
       const bus = Math.random() < 0.15;
       if (Math.random() < 0.5) addProp(bus ? 'bus' : 'car', along, rc + lane, 0);
       else                     addProp(bus ? 'bus' : 'car', rc + lane, along, Math.PI/2);
     }
-    if (k < GRID_N) addProp('cone', rand(-WORLD+60, WORLD-60), rc, 0);
+    if (k < GRID_N) {
+      addProp('cone', rand(-WORLD+60, WORLD-60), rc, 0);
+      addProp('cone', rc, rand(-WORLD+60, WORLD-60), 0);
+    }
   }
 }
 

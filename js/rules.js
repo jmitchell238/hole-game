@@ -49,6 +49,24 @@ function update(dt) {
     }
     moveHole(h, dt);
   }
+
+  // Similar-sized holes shove each other apart instead of overlapping —
+  // only a hole big enough to eat another may roll over it.
+  for (let i = 0; i < holes.length; i++) {
+    for (let j = i+1; j < holes.length; j++) {
+      const a = holes[i], b = holes[j];
+      if (a.r > b.r*1.15 || b.r > a.r*1.15) continue;
+      const d = dist(a.x, a.z, b.x, b.z), overlap = a.r + b.r - d;
+      if (overlap <= 0) continue;
+      const nx = d > 0.01 ? (b.x-a.x)/d : 1, nz = d > 0.01 ? (b.z-a.z)/d : 0;
+      const W = currentLevel.world;
+      a.x = clamp(a.x - nx*overlap/2, -W+a.r, W-a.r);
+      a.z = clamp(a.z - nz*overlap/2, -W+a.r, W-a.r);
+      b.x = clamp(b.x + nx*overlap/2, -W+b.r, W-b.r);
+      b.z = clamp(b.z + nz*overlap/2, -W+b.r, W-b.r);
+      syncHole(a); syncHole(b);
+    }
+  }
   refreshGround();   // re-punch the mouths into the ground as holes move/grow
 
   // Swallowing. An object only starts falling once its whole footprint is

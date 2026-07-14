@@ -1,336 +1,83 @@
 <meta charset="utf-8" />
-<title>Hole Royale</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #0d1117; overflow: hidden;
-    font-family: system-ui, Segoe UI, Arial, sans-serif; color: #e6edf3; }
-  #game { display: block; }
-  #hud { position: fixed; top: 12px; left: 12px; pointer-events: none;
-    text-shadow: 0 1px 3px #000; }
-  #timer { font-size: 34px; font-weight: 800; letter-spacing: 1px; }
-  #sizeInfo { font-size: 15px; opacity: .85; margin-top: 2px; }
-  #board { position: fixed; top: 12px; right: 12px; width: 190px;
-    background: rgba(22,27,34,.82); border: 1px solid #30363d; border-radius: 10px;
-    padding: 10px 12px; font-size: 13px; }
-  #board h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px;
-    text-transform: uppercase; opacity: .7; }
-  .row { display: flex; justify-content: space-between; padding: 3px 0; }
-  .row.me { color: #58d68d; font-weight: 700; }
-  .rank { opacity: .55; width: 18px; display: inline-block; }
-  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    background: rgba(13,17,23,.9); }
-  #overlay h1 { font-size: 52px; margin: 0 0 6px; }
-  #overlay p { opacity: .8; margin: 4px 0 22px; max-width: 460px; }
-  #overlay button { pointer-events: auto; cursor: pointer; font-size: 18px;
-    font-weight: 700; padding: 12px 30px; border: none; border-radius: 30px;
-    background: #58d68d; color: #0d1117; }
-  #overlay button:hover { background: #6fe3a0; }
-  .hidden { display: none !important; }
-  #finalBoard { text-align: left; font-size: 15px; margin-bottom: 20px;
-    min-width: 260px; }
-  #finalBoard .row { padding: 5px 0; border-bottom: 1px solid #21262d; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0d1117" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Hole Royale 3D</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="stylesheet" href="css/style.css" />
 
-<canvas id="game"></canvas>
-
+<div id="frame">
+<div id="tags"></div>
 <div id="hud">
   <div id="timer">2:00</div>
-  <div id="sizeInfo">Size 18</div>
+  <div id="sizeInfo">Size 12</div>
+  <div id="progressInfo"></div>
+  <div id="hint">Drag to steer · ⏸ or ESC pauses</div>
+</div>
+<div id="board"><h3>Leaderboard</h3><div id="rows"></div></div>
+<button id="pauseBtn" class="hidden">⏸</button>
+
+<div id="overlay" class="menu">
+  <div id="storePage" class="page hidden">
+    <h1>Store</h1>
+    <div class="gold" id="goldStore">🪙 0</div>
+    <button id="checkinBtn">Daily check-in · +10 🪙</button>
+    <h3 class="storeHead">Hole colors</h3>
+    <div id="colorGrid" class="grid"></div>
+    <h3 class="storeHead">Hole designs</h3>
+    <div id="designGrid" class="grid"></div>
+  </div>
+
+  <div id="playPage" class="page">
+    <h1>Hole Royale 3D</h1>
+    <div class="gold" id="goldPlay">🪙 0</div>
+    <p id="playText"><b>Drag</b> (mouse or finger) to steer your hole. A thing
+       only falls in once it fits <b>entirely</b> inside your hole — start
+       small, work up to cars, houses, then skyscrapers. Matches earn
+       <b>gold</b> to spend in the Store. Biggest hole at 0:00 wins.</p>
+    <div id="finalBoard" class="hidden"></div>
+    <div id="levelSelect"></div>
+    <button id="startBtn">Play</button>
+  </div>
+
+  <div id="settingsPage" class="page hidden">
+    <h1>Settings</h1>
+    <label class="setting"><input type="checkbox" id="shadowsChk" />
+      Shadows (prettier, but slower on tablets — applies next match)</label>
+    <button id="fsBtn" class="secondary">Toggle full screen</button>
+    <button id="resetBtn" class="secondary danger">Reset all progress</button>
+  </div>
+
+  <nav id="tabbar">
+    <button id="tabStore">🛍️ Store</button>
+    <button id="tabPlay" class="active">▶ Play</button>
+    <button id="tabSettings">⚙️ Settings</button>
+  </nav>
 </div>
 
-<div id="board">
-  <h3>Leaderboard</h3>
-  <div id="rows"></div>
+<div id="pauseMenu" class="menu hidden">
+  <h1>Paused</h1>
+  <p>Take a breather. The other holes are frozen too.</p>
+  <button id="resumeBtn">Resume</button>
+  <button id="restartBtn" class="secondary">Restart match</button>
 </div>
+</div><!-- /frame -->
 
-<div id="overlay">
-  <h1>Hole Royale</h1>
-  <p>Move your mouse to steer the hole. Swallow anything smaller than you to
-     grow — cones, people, cars, houses… then eat the other holes.
-     Biggest hole when the clock hits zero wins.</p>
-  <div id="finalBoard" class="hidden"></div>
-  <button id="startBtn">Play</button>
-</div>
-
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-let W, H;
-function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
-addEventListener('resize', resize); resize();
-
-// ---- World / tuning ----------------------------------------------------
-const WORLD = 3200;
-const MATCH_TIME = 120;          // seconds
-const OBJ_TARGET = 520;          // how many props to keep on the map
-const GROW = 0.85;               // how much of a swallowed thing's mass you keep
-const BOT_NAMES = ['xX_Reaper','mossy','GulpLord','Tina','pixelpete','NovaCat',
-  'bigmike','q u i n n','404notfound',' senpai ','DustBunny','Vortex'];
-
-// Prop types: r = radius (size), draw = renderer. Weighted small→big.
-const TYPES = [
-  { name:'person', r:5,  w:26, color:'#d9a066', tall:false },
-  { name:'cone',   r:6,  w:16, color:'#e67e22', tall:false },
-  { name:'bush',   r:9,  w:20, color:'#3a7d44', tall:false },
-  { name:'tree',   r:15, w:14, color:'#2e6b3e', tall:false },
-  { name:'car',    r:17, w:11, color:'#5a86d6', tall:false },
-  { name:'house',  r:30, w:6,  color:'#b0563a', tall:true  },
-  { name:'tower',  r:48, w:3,  color:'#8a8f98', tall:true  },
-];
-const WEIGHTED = TYPES.flatMap(t => Array(t.w).fill(t));
-const CAR_COLORS = ['#5a86d6','#d65a5a','#d6cf5a','#9b5ad6','#5ad6b0','#e6edf3'];
-
-// ---- Game state --------------------------------------------------------
-let objects, holes, player, timeLeft, running = false, last = 0;
-const mouse = { x: W/2, y: H/2 };
-const keys = {};
-addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-addEventListener('keyup',   e => keys[e.key.toLowerCase()] = false);
-
-const rand = (a, b) => a + Math.random() * (b - a);
-const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-
-function areaOf(r) { return Math.PI * r * r; }
-function grow(h, addArea) { h.r = Math.sqrt((areaOf(h.r) + addArea) / Math.PI); }
-
-function spawnObject(nearEdgeOk = true) {
-  const t = WEIGHTED[(Math.random() * WEIGHTED.length) | 0];
-  return {
-    x: rand(40, WORLD - 40), y: rand(40, WORLD - 40),
-    baseR: t.r, type: t, scale: 1, falling: false, hole: null,
-    color: t.name === 'car' ? CAR_COLORS[(Math.random()*CAR_COLORS.length)|0] : t.color,
-    rot: rand(0, Math.PI * 2),
-  };
-}
-
-function makeHole(x, y, name, isPlayer) {
-  return { x, y, r: 18, name, isPlayer, tx: x, ty: y, retarget: 0 };
-}
-
-function init() {
-  objects = [];
-  for (let i = 0; i < OBJ_TARGET; i++) objects.push(spawnObject());
-  holes = [];
-  player = makeHole(WORLD/2, WORLD/2, 'You', true);
-  holes.push(player);
-  const names = BOT_NAMES.slice().sort(() => Math.random() - 0.5);
-  for (let i = 0; i < 7; i++)
-    holes.push(makeHole(rand(200, WORLD-200), rand(200, WORLD-200), names[i], false));
-  timeLeft = MATCH_TIME;
-}
-
-// ---- Update ------------------------------------------------------------
-function canEat(hole, r) { return hole.r >= r * 0.85; }
-
-function moveHole(h, dt) {
-  const speed = Math.max(120, 300 - h.r * 1.4);
-  const d = dist(h.x, h.y, h.tx, h.ty);
-  if (d > 2) {
-    h.x += (h.tx - h.x) / d * Math.min(speed * dt, d);
-    h.y += (h.ty - h.y) / d * Math.min(speed * dt, d);
-  }
-  h.x = clamp(h.x, h.r, WORLD - h.r);
-  h.y = clamp(h.y, h.r, WORLD - h.r);
-}
-
-function botThink(bot) {
-  // Flee a clearly bigger hole that's close.
-  for (const o of holes) {
-    if (o !== bot && o.r > bot.r * 1.15 && dist(bot.x,bot.y,o.x,o.y) < o.r + 260) {
-      bot.tx = bot.x + (bot.x - o.x); bot.ty = bot.y + (bot.y - o.y);
-      return;
-    }
-  }
-  // Chase a smaller hole that's near.
-  let prey = null, pd = 420;
-  for (const o of holes) {
-    if (o !== bot && bot.r > o.r * 1.15) {
-      const dd = dist(bot.x,bot.y,o.x,o.y);
-      if (dd < pd) { pd = dd; prey = o; }
-    }
-  }
-  if (prey) { bot.tx = prey.x; bot.ty = prey.y; return; }
-  // Otherwise go eat the nearest thing it can swallow.
-  let best = null, bd = 1e9;
-  for (const ob of objects) {
-    if (ob.falling || !canEat(bot, ob.baseR)) continue;
-    const dd = dist(bot.x, bot.y, ob.x, ob.y);
-    if (dd < bd) { bd = dd; best = ob; }
-  }
-  if (best) { bot.tx = best.x; bot.ty = best.y; }
-  else { bot.tx = rand(0, WORLD); bot.ty = rand(0, WORLD); }
-}
-
-function update(dt) {
-  timeLeft -= dt;
-  if (timeLeft <= 0) { timeLeft = 0; endMatch(); return; }
-
-  // Player target from mouse (or WASD).
-  const zoom = curZoom;
-  let kx = (keys['d']?1:0) - (keys['a']?1:0);
-  let ky = (keys['s']?1:0) - (keys['w']?1:0);
-  if (kx || ky) {
-    player.tx = player.x + kx * 400; player.ty = player.y + ky * 400;
-  } else {
-    player.tx = (mouse.x - W/2) / zoom + player.x;
-    player.ty = (mouse.y - H/2) / zoom + player.y;
-  }
-
-  for (const h of holes) {
-    if (!h.isPlayer) {
-      h.retarget -= dt;
-      if (h.retarget <= 0) { botThink(h); h.retarget = rand(0.3, 0.8); }
-    }
-    moveHole(h, dt);
-  }
-
-  // Swallow props.
-  for (const ob of objects) {
-    if (ob.falling) {
-      const h = ob.hole;
-      ob.scale -= dt * 3.2;
-      ob.rot += dt * 8;
-      ob.x += (h.x - ob.x) * Math.min(1, dt * 9);
-      ob.y += (h.y - ob.y) * Math.min(1, dt * 9);
-      if (ob.scale <= 0.05) { grow(h, areaOf(ob.baseR) * GROW); ob.dead = true; }
-      continue;
-    }
-    for (const h of holes) {
-      if (canEat(h, ob.baseR) && dist(h.x, h.y, ob.x, ob.y) < h.r) {
-        ob.falling = true; ob.hole = h; break;
-      }
-    }
-  }
-  objects = objects.filter(o => !o.dead);
-  while (objects.length < OBJ_TARGET) objects.push(spawnObject());
-
-  // Holes eat smaller holes.
-  for (const a of holes) for (const b of holes) {
-    if (a === b || b.gone) continue;
-    if (a.r > b.r * 1.15 && dist(a.x, a.y, b.x, b.y) < a.r) {
-      grow(a, areaOf(b.r) * GROW);
-      if (b.isPlayer) { endMatch(); return; }
-      // Respawn the eaten bot small, far away.
-      b.r = 18; b.x = rand(200, WORLD-200); b.y = rand(200, WORLD-200);
-    }
-  }
-}
-
-// ---- Render ------------------------------------------------------------
-let curZoom = 1;
-function draw() {
-  // Camera follows player, zooms out as it grows.
-  const desired = clamp(1.35 - player.r * 0.006, 0.32, 1.1);
-  curZoom += (desired - curZoom) * 0.06;
-  const z = curZoom, camx = player.x, camy = player.y;
-  const toScreen = (x, y) => [ (x - camx) * z + W/2, (y - camy) * z + H/2 ];
-
-  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
-
-  // Ground + grid.
-  const [gx, gy] = toScreen(0, 0);
-  ctx.fillStyle = '#161b22';
-  ctx.fillRect(gx, gy, WORLD * z, WORLD * z);
-  ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 0; i <= WORLD; i += 160) {
-    const [sx] = toScreen(i, 0);   ctx.moveTo(sx, gy); ctx.lineTo(sx, gy + WORLD*z);
-    const [, sy] = toScreen(0, i); ctx.moveTo(gx, sy); ctx.lineTo(gx + WORLD*z, sy);
-  }
-  ctx.stroke();
-
-  // Props.
-  for (const ob of objects) {
-    const [sx, sy] = toScreen(ob.x, ob.y);
-    const r = ob.baseR * z * ob.scale;
-    if (sx < -60 || sy < -60 || sx > W+60 || sy > H+60) continue;
-    ctx.save(); ctx.translate(sx, sy); ctx.rotate(ob.rot); ctx.fillStyle = ob.color;
-    if (ob.type.tall) {                       // houses / towers: blocky w/ roof
-      ctx.fillRect(-r, -r, r*2, r*2);
-      ctx.fillStyle = 'rgba(0,0,0,.25)';
-      ctx.fillRect(-r, -r, r*2, r*0.5);
-    } else if (ob.type.name === 'car') {
-      ctx.fillRect(-r, -r*0.6, r*2, r*1.2);
-    } else if (ob.type.name === 'cone') {
-      ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r,r); ctx.lineTo(-r,r);
-      ctx.closePath(); ctx.fill();
-    } else {                                   // person / bush / tree: round
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
-      if (ob.type.name === 'tree' || ob.type.name === 'bush') {
-        ctx.fillStyle = 'rgba(0,0,0,.2)';
-        ctx.beginPath(); ctx.arc(r*0.3, r*0.3, r*0.5, 0, 7); ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
-
-  // Holes (draw smallest first so big ones read on top).
-  for (const h of [...holes].sort((a,b) => a.r - b.r)) {
-    const [sx, sy] = toScreen(h.x, h.y);
-    const r = h.r * z;
-    const g = ctx.createRadialGradient(sx, sy, r*0.2, sx, sy, r);
-    g.addColorStop(0, '#000'); g.addColorStop(0.82, '#000');
-    g.addColorStop(1, h.isPlayer ? '#58d68d' : '#c0392b');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
-    // Name tag.
-    ctx.fillStyle = h.isPlayer ? '#58d68d' : '#e6edf3';
-    ctx.font = '600 13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(h.name, sx, sy - r - 6);
-  }
-}
-
-// ---- HUD / flow --------------------------------------------------------
-const overlay = document.getElementById('overlay');
-const finalBoard = document.getElementById('finalBoard');
-document.getElementById('startBtn').onclick = start;
-
-function fmtTime(t) {
-  const m = Math.floor(t/60), s = Math.floor(t%60);
-  return m + ':' + String(s).padStart(2, '0');
-}
-function updateHud() {
-  document.getElementById('timer').textContent = fmtTime(timeLeft);
-  document.getElementById('sizeInfo').textContent = 'Size ' + Math.round(player.r);
-  const ranked = [...holes].sort((a, b) => b.r - a.r);
-  document.getElementById('rows').innerHTML = ranked.map((h, i) =>
-    `<div class="row ${h.isPlayer?'me':''}"><span>
-       <span class="rank">${i+1}</span>${h.name}</span>
-     <span>${Math.round(h.r)}</span></div>`).join('');
-}
-
-function start() {
-  init(); overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
-  running = true; last = performance.now();
-  requestAnimationFrame(loop);
-}
-function endMatch() {
-  running = false;
-  const ranked = [...holes].sort((a, b) => b.r - a.r);
-  const myRank = ranked.indexOf(player) + 1;
-  overlay.querySelector('h1').textContent =
-    myRank === 1 ? 'You win! 🏆' : `You placed #${myRank}`;
-  overlay.querySelector('p').textContent =
-    `Final size ${Math.round(player.r)}. ` +
-    (myRank === 1 ? 'Nobody out-swallowed you.' : 'Get bigger faster next time.');
-  finalBoard.innerHTML = ranked.map((h, i) =>
-    `<div class="row ${h.isPlayer?'me':''}"><span>
-       <span class="rank">${i+1}</span>${h.name}</span>
-     <span>${Math.round(h.r)}</span></div>`).join('');
-  finalBoard.classList.remove('hidden');
-  document.getElementById('startBtn').textContent = 'Play again';
-  overlay.classList.remove('hidden');
-}
-
-function loop(now) {
-  if (!running) return;
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  update(dt);
-  if (!running) return;      // endMatch may have fired
-  draw();
-  updateHud();
-  requestAnimationFrame(loop);
-}
-</script>
+<script src="js/vendor/three.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/props.js"></script>
+<script src="js/save.js"></script>
+<script src="js/cosmetics.js"></script>
+<script src="js/hole.js"></script>
+<!-- Levels: one file each. Add new levels (desert, winter, …) here. -->
+<script src="js/levels/city.js"></script>
+<script src="js/levels/island.js"></script>
+<script src="js/input.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/main.js"></script>

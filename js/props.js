@@ -5,6 +5,8 @@
 // Prop stats: r = footprint radius, h = height.
 const STATS = {
   person:      { r: 3.5, h: 10 },
+  dog:         { r: 3,   h: 6 },
+  mailbox:     { r: 2.5, h: 7 },
   hydrant:     { r: 2.5, h: 6 },
   trashcan:    { r: 2.5, h: 7 },
   cone:        { r: 3,   h: 9 },
@@ -25,6 +27,7 @@ const STATS = {
 const SHADOW_CASTERS = new Set(['tree','car','bus','shop','house','apartment','tower','fountain']);
 const CAR_COLORS = [0x4f8ae8,0xe85555,0xf0c548,0x9b5ad6,0x48c9a9,0xf2f4f6,0x3d4854];
 const SHIRT_COLORS = [0xe85555,0x4f8ae8,0x4fc46a,0xf0a848,0x9b5ad6,0xf2f4f6];
+const DOG_COLORS = [0x8a6642,0xf2f4f6,0x3a3a3a,0xc9a578];
 const HOUSE_COLORS = ['#e8dcc0','#cfe0ee','#efd8d8','#dfe8cf','#e8e0cf','#d8cfe8'];
 
 // Levels call this to add their own themed props before/inside populate().
@@ -121,6 +124,7 @@ const MAT = {
   lamp:  new THREE.MeshLambertMaterial({ color: 0xffe9a8 }),
   tire:  new THREE.MeshLambertMaterial({ color: 0x2a2e33 }),
   stone: new THREE.MeshLambertMaterial({ color: 0x9aa2a8 }),
+  mail:  new THREE.MeshLambertMaterial({ color: 0x3a6fd8 }),
 };
 // Pre-built wall texture variants (shared across buildings).
 const HOUSE_WALLS = HOUSE_COLORS.map(c => ({
@@ -151,6 +155,24 @@ const BUILDERS = {
     g.add(part(new THREE.SphereGeometry(1.6, 10, 8), MAT.skin, 0, 8.3, 0));
     const hairM = part(new THREE.SphereGeometry(1.65, 10, 6), MAT.hair, 0, 8.6, -0.15);
     hairM.scale.y = 0.62; g.add(hairM);
+    return g;
+  },
+  dog() {
+    const g = new THREE.Group();
+    const fur = new THREE.MeshLambertMaterial({ color: pick(DOG_COLORS) });
+    g.add(part(new THREE.BoxGeometry(5, 2.4, 2.2), fur, 0, 2.6, 0));
+    g.add(part(new THREE.BoxGeometry(2, 2, 1.9), fur, 3.1, 4, 0));
+    g.add(part(new THREE.BoxGeometry(1, 0.9, 1.2), MAT.dark, 4.4, 3.6, 0));
+    for (const [lx, lz] of [[-1.8,0.7],[1.8,0.7],[-1.8,-0.7],[1.8,-0.7]])
+      g.add(part(new THREE.BoxGeometry(0.7, 1.6, 0.7), fur, lx, 0.8, lz));
+    const tail = part(new THREE.BoxGeometry(1.8, 0.6, 0.6), fur, -3, 3.6, 0);
+    tail.rotation.z = 0.6; g.add(tail);
+    return g;
+  },
+  mailbox() {
+    const g = new THREE.Group();
+    g.add(part(new THREE.BoxGeometry(1.2, 4, 1.2), MAT.dark, 0, 2, 0));
+    g.add(part(new THREE.BoxGeometry(4.4, 3, 3), MAT.mail, 0, 5.3, 0));
     return g;
   },
   hydrant() {
