@@ -34,6 +34,10 @@ function update(dt) {
 
   const kx = (keys['d']?1:0)-(keys['a']?1:0), kz = (keys['s']?1:0)-(keys['w']?1:0);
   if (kx || kz) { player.tx = player.x + kx*300; player.tz = player.z + kz*300; }
+  else if (joyActive && (joyX*joyX + joyY*joyY) > 0.02) {
+    player.tx = player.x + joyX*300;
+    player.tz = player.z + joyY*300;
+  }
   else if (dragging) {
     raycaster.setFromCamera(ndc, camera);
     const hit = new THREE.Vector3();

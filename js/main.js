@@ -85,6 +85,7 @@ function start() {
   init(LEVELS[selectedLevelId]); dragging = false;
   overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
   pauseBtn.classList.remove('hidden');
+  joyShow(true);
   running = true; paused = false;
   last = performance.now();
   requestAnimationFrame(loop);
@@ -93,6 +94,7 @@ function start() {
 function endMatch() {
   if (!running) return;
   running = false;
+  joyShow(false);
   const alive = holes.slice();
   const ranked = [...alive].sort((a,b)=>b.r-a.r);
   const rank = player.eaten ? 0 : ranked.indexOf(player)+1;
