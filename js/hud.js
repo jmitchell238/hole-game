@@ -110,6 +110,12 @@ shadowsChk.onchange = () => {
   SAVE.shadows = shadowsChk.checked;
   persistSave();
 };
+const controlsSel = document.getElementById('controlsSel');
+controlsSel.value = SAVE.controls;
+controlsSel.onchange = () => {
+  SAVE.controls = controlsSel.value;
+  persistSave();
+};
 // Debug helper: grant every color and design so they can be previewed in-game.
 // "Reset all progress" below undoes it.
 document.getElementById('unlockAllBtn').onclick = () => {

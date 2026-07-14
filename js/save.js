@@ -10,6 +10,7 @@ let SAVE = {
   design: null,              // equipped hole design (null = plain hole)
   lastCheckin: '',           // YYYY-M-D of the last daily check-in claim
   shadows: true,
+  controls: 'touch',         // 'touch' or 'keyboard'
 };
 try {
   const stored = JSON.parse(localStorage.getItem(SAVE_KEY));

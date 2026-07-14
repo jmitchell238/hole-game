@@ -37,6 +37,9 @@ renderer.domElement.addEventListener('pointerdown', e => {
   activePointer = e.pointerId;
   if (e.pointerType === 'mouse') {
     dragging = true; setNdc(e);
+  } else if (SAVE.controls === 'keyboard') {
+    // Keyboard mode: treat touch drag like mouse
+    dragging = true; setNdc(e);
   } else {
     // Touch/pen: start joystick mode
     joyActive = true;

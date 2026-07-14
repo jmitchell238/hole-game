@@ -85,7 +85,7 @@ function start() {
   init(LEVELS[selectedLevelId]); dragging = false;
   overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
   pauseBtn.classList.remove('hidden');
-  joyShow(true);
+  joyShow(SAVE.controls === 'touch');
   running = true; paused = false;
   last = performance.now();
   requestAnimationFrame(loop);

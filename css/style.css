@@ -78,6 +78,7 @@ canvas.dragging { cursor: grabbing; }
 .setting { display: block; font-size: 15px; margin: 10px 0 16px; max-width: 380px; }
 .setting input { width: 18px; height: 18px; margin-right: 8px;
   vertical-align: -3px; }
+.setting select { background:#161b22; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:4px 8px; font-size:14px; }
 .danger { color: #ff7a7a !important; }
 
 #joy { position: absolute; width: 110px; height: 110px; border-radius: 50%;
