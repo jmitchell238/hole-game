@@ -186,7 +186,7 @@ function buildSkin(url, cx, cy, rf, processImage) {
       side: THREE.DoubleSide
     });
 
-    const planeScale = 1 / rf;  // Scale plane so inner/outer ring maps to unit radius
+    const planeScale = 1 / (rf * 0.96);  // Scale plane so inner/outer ring maps to 0.96 units (overlap margin)
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(planeScale, planeScale),
       material
@@ -194,7 +194,7 @@ function buildSkin(url, cx, cy, rf, processImage) {
 
     // Rotate to lie flat on ground
     plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.01;  // Tiny lift to avoid z-fighting
+    plane.position.y = 0;  // Will be positioned at constant height via syncHole
 
     // Offset plane so circle center lands at hole center (0,0)
     // Image point (cx, cy) should map to plane point (0, 0)
@@ -210,6 +210,7 @@ function buildSkin(url, cx, cy, rf, processImage) {
 
   // The group returns immediately; plane attaches when image loads
   g.userData.spin = 0;  // Stay upright, don't rotate
+  g.userData.flat = true;  // Image skin: keep at constant world height
   return g;
 }
 

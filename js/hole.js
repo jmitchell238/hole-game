@@ -100,7 +100,8 @@ function syncHole(h) {
   h.ring.position.x = h.x; h.ring.position.z = h.z;
   if (h.deco) {
     h.deco.scale.set(s, s, s);
-    h.deco.position.set(h.x, 0, h.z);
+    const decoY = h.deco.userData.flat ? 0.35 : 0;  // Image skins at constant height; 3D designs scale with hole
+    h.deco.position.set(h.x, decoY, h.z);
   }
 }
 
