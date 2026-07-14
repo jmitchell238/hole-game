@@ -288,6 +288,7 @@ registerLevel({
   hemi: [0xcfe8ff, 0x7a9a6a, 0.85],
   sunColor: 0xfff2d8,
   soil: ['#4a4038', '#241f1a'],
+  skirtColor: 0x5a4a3a,
   progressLabel: 'City devoured',
   // world, playerSpawn, and botSpawns are rolled by generate() every match.
   generate,

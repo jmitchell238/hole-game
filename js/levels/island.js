@@ -205,6 +205,7 @@ registerLevel({
   hemi: [0xd8f0ff, 0x4a8a96, 0.9],
   sunColor: 0xfff6dd,
   soil: ['#c9b076', '#5f5233'],
+  skirtColor: 0x1e4f66,
   progressLabel: 'Islands devoured',
   // world, playerSpawn, and botSpawns are rolled by generate() every match.
   generate,

@@ -66,8 +66,33 @@ function canvasTex(w, h, draw) {
 
 // ---- Ground -------------------------------------------------------------------
 let ground = null;
+let skirt = null;
+
+// Side walls under the map edge, as deep as the pits go, so the world reads
+// as a solid slab — without them the pit tube shows as a floating black blob
+// when a hole sits near the edge.
+function buildSkirt(level) {
+  if (skirt) {
+    scene.remove(skirt);
+    skirt.children.forEach(m => m.geometry.dispose());
+    skirt.children[0].material.dispose();
+  }
+  const W = level.world, D = HOLE_DEPTH + 12;
+  const mat = new THREE.MeshLambertMaterial(
+    { color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide });
+  skirt = new THREE.Group();
+  for (const [x, z, ry] of [[0, -W, 0], [0, W, 0],
+                            [-W, 0, Math.PI/2], [W, 0, Math.PI/2]]) {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(2*W, D), mat);
+    wall.position.set(x, -D/2, z);
+    wall.rotation.y = ry;
+    skirt.add(wall);
+  }
+  scene.add(skirt);
+}
 
 function buildGround(level) {
+  buildSkirt(level);
   if (ground) {
     scene.remove(ground);
     if (ground.geometry) ground.geometry.dispose();
