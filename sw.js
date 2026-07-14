@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'hole-royale-v10';
+const CACHE = 'hole-royale-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -49,9 +49,24 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim()));
 });
 
-// Cache-first, falling back to the network (and caching what it fetches).
+// Network-first for navigations and sw-critical files; cache-first for everything else.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+
+  // Network-first for navigations and sw-critical files
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok && new URL(e.request.url).origin === location.origin) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(e.request)));
+    return;
+  }
+
+  // Cache-first for everything else
   e.respondWith(
     caches.match(e.request).then(hit => hit ||
       fetch(e.request).then(res => {

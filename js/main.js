@@ -109,6 +109,13 @@ function endMatch() {
   persistSave();
   updateGold();
 
+  // If an update arrived during the match, reload now that the reward is saved
+  if (window.__pendingReload) {
+    window.__reloaded = true;
+    location.reload();
+    return;
+  }
+
   document.getElementById('playPage').querySelector('h1').textContent =
     player.eaten ? 'Swallowed! 💀'
     : rank === 1 && alive.length === 1 ? 'You ate everyone! 🏆'
@@ -150,5 +157,25 @@ if (location.search.includes('debug=1')) {
 // Installable PWA: cache the game for offline play (needs HTTPS, so this is
 // a no-op when opening the file directly).
 if ('serviceWorker' in navigator &&
-    (location.protocol === 'https:' || location.hostname === 'localhost'))
-  navigator.serviceWorker.register('sw.js');
+    (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // Check for updates immediately, on visibility change, and every 30 minutes
+    reg.update();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+    setInterval(() => reg.update(), 30 * 60 * 1000);
+
+    // Auto-reload when a new worker takes over, but guard against mid-match reload
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (running && !paused) {
+        window.__pendingReload = true;
+        return;
+      }
+      if (!window.__reloaded) {
+        window.__reloaded = true;
+        location.reload();
+      }
+    });
+  });
+}
