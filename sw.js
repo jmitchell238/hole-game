@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'hole-royale-v3';
+const CACHE = 'hole-royale-v4';
 const ASSETS = [
   './',
   './index.html',

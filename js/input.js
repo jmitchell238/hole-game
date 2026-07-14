@@ -17,9 +17,8 @@ function joyShow(on) {
   const knobEl = document.getElementById('joyKnob');
   if (on) {
     // Park at bottom-center hint spot
-    const bottomY = FRAME.y + FRAME.h - 90;
-    joyEl.style.left = (FRAME.x + FRAME.w/2 - 55) + 'px';
-    joyEl.style.top = bottomY + 'px';
+    joyEl.style.left = (FRAME.w/2 - 55) + 'px';
+    joyEl.style.top = (FRAME.h - 160) + 'px';
     joyEl.classList.remove('hidden');
     joyEl.classList.add('rest');
     knobEl.style.transform = 'translate(-50%, -50%)';
@@ -45,8 +44,8 @@ renderer.domElement.addEventListener('pointerdown', e => {
     joyCenterY = e.clientY - FRAME.y;
     joyX = joyY = 0;
     const joyEl = document.getElementById('joy');
-    joyEl.style.left = (FRAME.x + joyCenterX - 55) + 'px';
-    joyEl.style.top = (FRAME.y + joyCenterY - 55) + 'px';
+    joyEl.style.left = (joyCenterX - 55) + 'px';
+    joyEl.style.top = (joyCenterY - 55) + 'px';
     joyEl.classList.remove('hidden', 'rest');
   }
   try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
