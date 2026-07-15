@@ -72,7 +72,7 @@ function makeHole(x, z, name, isPlayer) {
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
   return { wall, cap, ring, tag, deco, x, z, r: 12, name, isPlayer,
-    tx: x, tz: z, retarget: 0,
+    tx: x, tz: z, retarget: 0, _ringLv: 1,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }
 
@@ -98,6 +98,16 @@ function syncHole(h) {
   h.wall.position.x = h.x; h.wall.position.z = h.z;
   h.cap.position.x = h.x;  h.cap.position.z = h.z;
   h.ring.position.x = h.x; h.ring.position.z = h.z;
+
+  // Rebuild ring geometry when sizeLevel changes
+  const currentLv = sizeLevel(h.r);
+  if (currentLv !== h._ringLv) {
+    h._ringLv = currentLv;
+    if (h.ring.geometry) h.ring.geometry.dispose();
+    const band = 0.12 * clamp(30 / h.r, 0.3, 1);
+    h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, 48);
+  }
+
   if (h.deco) {
     h.deco.scale.set(s, s, s);
     const decoY = h.deco.userData.flat ? 0.35 : 0;  // Image skins at constant height; 3D designs scale with hole

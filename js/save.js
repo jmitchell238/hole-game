@@ -11,6 +11,7 @@ let SAVE = {
   lastCheckin: '',           // YYYY-M-D of the last daily check-in claim
   shadows: true,
   controls: 'touch',         // 'touch' or 'keyboard'
+  debug: false,
 };
 try {
   const stored = JSON.parse(localStorage.getItem(SAVE_KEY));

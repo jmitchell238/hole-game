@@ -24,7 +24,7 @@ function updateHud() {
   // Level-up flash
   if (lv > lastLevel) {
     const levelUpEl = document.getElementById('levelUp');
-    levelUpEl.textContent = 'LEVEL ' + lv + '!';
+    levelUpEl.textContent = lv === 10 ? 'MAX SIZE!' : 'SIZE ' + lv + '!';
     levelUpEl.classList.remove('hidden');
     // Restart animation by removing and re-adding the element or toggling the class
     void levelUpEl.offsetWidth; // trigger reflow
@@ -64,7 +64,7 @@ TAB_BTNS.settings.onclick = () => showTab('settings');
 
 // The middle tab always names the level you're about to play.
 function updatePlayTab() {
-  TAB_BTNS.play.textContent = '▶ ' + (LEVELS[selectedLevelId]?.name || 'Play');
+  TAB_BTNS.play.textContent = '▶ ' + (SAVE.debug && selectedLevelId ? LEVELS[selectedLevelId].name : 'Play');
 }
 
 function updateGold() {
@@ -138,6 +138,15 @@ controlsSel.onchange = () => {
   SAVE.controls = controlsSel.value;
   persistSave();
 };
+const debugChk = document.getElementById('debugChk');
+const debugSection = document.getElementById('debugSection');
+debugChk.checked = SAVE.debug;
+debugSection.classList.toggle('hidden', !SAVE.debug);
+debugChk.onchange = () => {
+  SAVE.debug = debugChk.checked;
+  persistSave();
+  debugSection.classList.toggle('hidden', !SAVE.debug);
+};
 // Debug helper: grant every color and design so they can be previewed in-game.
 // "Reset all progress" below undoes it.
 function unlockAllCosmetics() {
@@ -163,6 +172,13 @@ let selectedLevelId = null;
 function buildLevelSelect() {
   const wrap = document.getElementById('levelSelect');
   wrap.innerHTML = '';
+  // Random button
+  const randomBtn = document.createElement('button');
+  randomBtn.className = selectedLevelId === null ? 'active' : '';
+  randomBtn.textContent = 'Random';
+  randomBtn.onclick = () => { selectedLevelId = null; buildLevelSelect(); updatePlayTab(); };
+  wrap.appendChild(randomBtn);
+  // Level buttons
   for (const id in LEVELS) {
     const b = document.createElement('button');
     b.className = id === selectedLevelId ? 'active' : '';

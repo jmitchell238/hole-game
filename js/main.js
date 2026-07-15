@@ -29,11 +29,16 @@ function init(level) {
 // ---- Camera + render -----------------------------------------------------------
 let camPos = new THREE.Vector3(0, 200, 160);
 function render() {
-  const height = 115 + player.r*4.2, depth = 95 + player.r*3.6;
+  const rz = player.r <= 120 ? player.r : 120 + (player.r - 120) * 0.45;
+  const height = 115 + rz*4.2, depth = 95 + rz*3.6;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
   camPos.lerp(want, 0.06);
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
+
+  // Dynamic fog: adjust far plane based on camera height
+  scene.fog.far = Math.max(currentLevel.fog[1], height * 2.4);
+  scene.fog.near = scene.fog.far * 0.38;
 
   // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);
@@ -62,6 +67,11 @@ document.getElementById('resumeBtn').onclick = togglePause;
 document.getElementById('restartBtn').onclick = () => {
   paused = false; pauseMenu.classList.add('hidden'); start();
 };
+document.getElementById('exitBtn').onclick = () => {
+  if (!confirm('Are you sure? Progress will be lost!')) return;
+  running = false; paused = false; pauseMenu.classList.add('hidden'); joyShow(false);
+  showTab('play'); overlay.classList.remove('hidden');
+};
 pauseBtn.onclick = togglePause;
 
 // Fullscreen (with the webkit fallback older iPads need).
@@ -83,7 +93,9 @@ function togglePause() {
 }
 
 function start() {
-  init(LEVELS[selectedLevelId]); dragging = false;
+  const forced = SAVE.debug && selectedLevelId;
+  init(LEVELS[forced ? selectedLevelId : pick(Object.keys(LEVELS))]);
+  dragging = false;
   overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
   pauseBtn.classList.remove('hidden');
   joyShow(SAVE.controls === 'touch');
@@ -143,15 +155,19 @@ function loop(now) {
   if (!paused) requestAnimationFrame(loop);
 }
 
-// Default to the first registered level and show the choices.
-selectedLevelId = Object.keys(LEVELS)[0];
 buildLevelSelect();
 updatePlayTab();
 updateGold();
 
 // Debug unlock via URL parameter
 if (location.search.includes('debug=1')) {
+  SAVE.debug = true;
+  persistSave();
   unlockAllCosmetics();
+  debugChk.checked = SAVE.debug;
+  debugSection.classList.toggle('hidden', !SAVE.debug);
+  buildLevelSelect();
+  updatePlayTab();
 }
 
 // Installable PWA: cache the game for offline play (needs HTTPS, so this is

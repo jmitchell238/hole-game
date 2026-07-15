@@ -42,7 +42,6 @@
        small, work up to cars, houses, then skyscrapers. Matches earn
        <b>gold</b> to spend in the Store. Biggest hole at 0:00 wins.</p>
     <div id="finalBoard" class="hidden"></div>
-    <div id="levelSelect"></div>
     <button id="startBtn">Play</button>
   </div>
 
@@ -52,7 +51,12 @@
       Shadows (prettier, but slower on tablets — applies next match)</label>
     <label class="setting">Controls: <select id="controlsSel"><option value="touch">Touchscreen (joystick)</option><option value="keyboard">Keyboard &amp; mouse</option></select></label>
     <button id="fsBtn" class="secondary">Toggle full screen</button>
-    <button id="unlockAllBtn" class="secondary">🐞 Debug: unlock all cosmetics</button>
+    <div id="debugSection" class="hidden">
+      <h3 class="storeHead">🐞 Debug</h3>
+      <label class="setting"><input type="checkbox" id="debugChk" /> 🐞 Debug mode</label>
+      <div id="levelSelect"></div>
+      <button id="unlockAllBtn" class="secondary">Unlock all cosmetics</button>
+    </div>
     <button id="resetBtn" class="secondary danger">Reset all progress</button>
   </div>
 
@@ -68,6 +72,7 @@
   <p>Take a breather. The other holes are frozen too.</p>
   <button id="resumeBtn">Resume</button>
   <button id="restartBtn" class="secondary">Restart match</button>
+  <button id="exitBtn" class="secondary danger">Exit to main menu</button>
 </div>
 </div><!-- /frame -->
 
@@ -83,6 +88,7 @@
 <script src="js/levels/island.js"></script>
 <script src="js/levels/winter.js"></script>
 <script src="js/levels/desert.js"></script>
+<script src="js/levels/medieval.js"></script>
 <script src="js/input.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/hud.js"></script>
