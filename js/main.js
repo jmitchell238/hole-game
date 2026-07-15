@@ -22,7 +22,7 @@ function init(level) {
     holes.push(makeHole(spawns[i][0], spawns[i][1], names[i], false));
   refreshGround();
   camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
-  timeLeft = MATCH_TIME;
+  timeLeft = level.matchTime || MATCH_TIME;
   lastLevel = 1;
 }
 
