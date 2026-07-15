@@ -16,6 +16,15 @@ const SAND_TAN = new THREE.MeshLambertMaterial({ color: 0xd9b078 });
 const RUST = new THREE.MeshLambertMaterial({ color: 0x8a4a2a });
 const LEATHER = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
 const METAL = new THREE.MeshLambertMaterial({ color: 0x7a8a9a });
+const SIENNA = new THREE.MeshLambertMaterial({ color: 0x8a5433 });
+const RED_BROWN = new THREE.MeshLambertMaterial({ color: 0xa1543c });
+const GRAY_BROWN = new THREE.MeshLambertMaterial({ color: 0x7d6a55 });
+const DARK_WOOD = new THREE.MeshLambertMaterial({ color: 0x5f3c22 });
+const SIGN_RED = new THREE.MeshLambertMaterial({ color: 0x7e2f26 });
+const SIGN_GREEN = new THREE.MeshLambertMaterial({ color: 0x2f5e3c });
+const SIGN_NAVY = new THREE.MeshLambertMaterial({ color: 0x2c4a6b });
+const PALE_PANE = new THREE.MeshLambertMaterial({ color: 0xe8d9a0 });
+const LANTERN = new THREE.MeshLambertMaterial({ color: 0xffb84d });
 
 // Cactus: saguaro with arms (2 size variants)
 registerProp('cactus', { r: 4, h: 18 }, function() {
@@ -166,9 +175,9 @@ registerProp('longhorn', { r: 4.5, h: 8 }, function() {
 
 // Wood building: 2-story wood box with detailed facade, awning, parapet, porch, 3 color tints
 registerProp('woodbuilding', { r: 14, h: 22 }, function() {
-  const colors = [0x8a6642, 0x9a7050, 0x7a5838];
-  const buildMat = new THREE.MeshLambertMaterial({ color: pick(colors) });
-  const darkMat = new THREE.MeshLambertMaterial({ color: 0x3a2818 });
+  const colors = [SIENNA, RED_BROWN, GRAY_BROWN];
+  const buildMat = pick(colors);
+  const darkFrameMat = new THREE.MeshLambertMaterial({ color: 0x3a2818 });
   const g = new THREE.Group();
 
   // Vary height and width per instance (±20%)
@@ -183,63 +192,131 @@ registerProp('woodbuilding', { r: 14, h: 22 }, function() {
   // Flat parapet front (taller than roofline)
   g.add(part(new THREE.BoxGeometry(mainW + 2, 3.5, 0.8), buildMat, 0, mainH + 2, 4.8));
 
+  // 2-3 thin darker horizontal plank strips for texture
+  const plankMat = new THREE.MeshLambertMaterial({ color: 0x4a3a2a });
+  const plankSpacing = mainH / 4;
+  for (let p = 1; p <= 3; p++) {
+    g.add(part(new THREE.BoxGeometry(mainW + 0.5, 0.3, 10.2), plankMat, 0, plankSpacing * p, 0));
+  }
+
   // Dark contrasting door plate (bottom center front)
   const doorW = mainW * 0.3, doorH = mainH * 0.35;
-  g.add(part(new THREE.BoxGeometry(doorW, doorH, 0.4), darkMat, 0, doorH/2 + 1, 5.1));
+  g.add(part(new THREE.BoxGeometry(doorW, doorH, 0.4), darkFrameMat, 0, doorH/2 + 1, 5.1));
   // Door knob hint
   g.add(part(new THREE.SphereGeometry(0.3, 6, 5), new THREE.MeshLambertMaterial({ color: 0xd4af37 }),
     doorW/3, doorH/2 + 1, 5.3));
 
-  // Window plates (2-4 windows, dark boxes slightly proud)
+  // Window plates (2-4 windows, dark frames with pale warm panes)
   const windowCount = 2 + ((Math.random()*2)|0);
   const spacing = mainW / (windowCount + 1);
   for (let i = 0; i < windowCount; i++) {
     const wx = -mainW/2 + spacing * (i + 1);
     // Upper floor windows
-    g.add(part(new THREE.BoxGeometry(3.5, 3.5, 0.3), darkMat, wx, mainH * 0.65, 5.15));
-    g.add(part(new THREE.BoxGeometry(2.8, 2.8, 0.1), new THREE.MeshLambertMaterial({ color: 0x4a7aa8 }),
-      wx, mainH * 0.65, 5.2));
+    g.add(part(new THREE.BoxGeometry(3.5, 3.5, 0.3), darkFrameMat, wx, mainH * 0.65, 5.15));
+    g.add(part(new THREE.BoxGeometry(2.8, 2.8, 0.1), PALE_PANE, wx, mainH * 0.65, 5.2));
     // Lower floor windows
-    g.add(part(new THREE.BoxGeometry(3.5, 3.5, 0.3), darkMat, wx, mainH * 0.25, 5.15));
-    g.add(part(new THREE.BoxGeometry(2.8, 2.8, 0.1), new THREE.MeshLambertMaterial({ color: 0x4a7aa8 }),
-      wx, mainH * 0.25, 5.2));
+    g.add(part(new THREE.BoxGeometry(3.5, 3.5, 0.3), darkFrameMat, wx, mainH * 0.25, 5.15));
+    g.add(part(new THREE.BoxGeometry(2.8, 2.8, 0.1), PALE_PANE, wx, mainH * 0.25, 5.2));
   }
 
-  // Striped awning canopy (thin box with 2-color effect)
-  const awningMat1 = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
-  const awningMat2 = new THREE.MeshLambertMaterial({ color: 0xd2691e });
+  // Striped awning canopy with darker materials
   const awningW = mainW * 0.5;
-  g.add(part(new THREE.BoxGeometry(awningW, 1.2, 2), awningMat1, 0, mainH * 0.45, 5.8));
+  g.add(part(new THREE.BoxGeometry(awningW, 1.2, 2), DARK_WOOD, 0, mainH * 0.45, 5.8));
   // Stripes on awning
+  const stripColors = [pick([SIGN_RED, SIGN_GREEN, SIGN_NAVY])];
   for (let s = 0; s < 4; s++) {
     const stripX = -awningW/2 + (s + 0.5) * (awningW / 4);
-    g.add(part(new THREE.BoxGeometry(awningW/5, 1.3, 0.1), awningMat2, stripX, mainH * 0.45, 5.85));
+    g.add(part(new THREE.BoxGeometry(awningW/5, 1.3, 0.1), pick(stripColors), stripX, mainH * 0.45, 5.85));
   }
 
-  // Small sign board plate above awning
-  const signMat = new THREE.MeshLambertMaterial({ color: 0x6b4423 });
-  g.add(part(new THREE.BoxGeometry(mainW * 0.4, 1.5, 0.5), signMat, 0, mainH * 0.55, 5.4));
-  // Sign accent (gold band)
-  g.add(part(new THREE.BoxGeometry(mainW * 0.35, 0.6, 0.1), new THREE.MeshLambertMaterial({ color: 0xffd700 }),
+  // Sign board plate with deep red base
+  g.add(part(new THREE.BoxGeometry(mainW * 0.4, 1.5, 0.5), SIGN_RED, 0, mainH * 0.55, 5.4));
+  // Light lettering strip on sign
+  g.add(part(new THREE.BoxGeometry(mainW * 0.35, 0.5, 0.1), new THREE.MeshLambertMaterial({ color: 0xe8d9a0 }),
     0, mainH * 0.55, 5.5));
 
   // 40% chance: covered porch with 2 posts and roof slab
   if (Math.random() < 0.4) {
     const postR = 0.8, postH = mainH * 0.45;
     const porch_roof_y = postH + mainH * 0.1;
-    // Left post
-    g.add(part(new THREE.CylinderGeometry(postR, postR, postH, 8), buildMat,
+    // Left post (darker wood)
+    g.add(part(new THREE.CylinderGeometry(postR, postR, postH, 8), DARK_WOOD,
       -mainW/3, postH/2, 5.5));
-    // Right post
-    g.add(part(new THREE.CylinderGeometry(postR, postR, postH, 8), buildMat,
+    // Right post (darker wood)
+    g.add(part(new THREE.CylinderGeometry(postR, postR, postH, 8), DARK_WOOD,
       mainW/3, postH/2, 5.5));
-    // Porch roof slab
-    g.add(part(new THREE.BoxGeometry(mainW * 0.65, 1, 2.5), buildMat,
+    // Porch roof slab (darker wood)
+    g.add(part(new THREE.BoxGeometry(mainW * 0.65, 1, 2.5), DARK_WOOD,
       0, porch_roof_y, 5.5));
   }
 
   return g;
 }, true);
+
+// Dead tree: bare twisted tree with dark trunk + 3-4 branch cylinders at odd angles
+registerProp('deadtree', { r: 4, h: 16 }, function() {
+  const g = new THREE.Group();
+  const trunkColor = new THREE.MeshLambertMaterial({ color: 0x4a3a2a });
+  // Main trunk
+  g.add(part(new THREE.CylinderGeometry(0.8, 1.2, 14, 6), trunkColor, 0, 7, 0));
+  // Branches at odd angles
+  const branchColor = new THREE.MeshLambertMaterial({ color: 0x5a4a3a });
+  const branch1 = part(new THREE.CylinderGeometry(0.4, 0.2, 6, 5), branchColor, 2, 12, -1);
+  branch1.rotation.z = 0.6;
+  g.add(branch1);
+  const branch2 = part(new THREE.CylinderGeometry(0.4, 0.2, 5.5, 5), branchColor, -2.5, 11, 1);
+  branch2.rotation.z = -0.7;
+  g.add(branch2);
+  const branch3 = part(new THREE.CylinderGeometry(0.3, 0.15, 4.5, 5), branchColor, 1.5, 9, 2);
+  branch3.rotation.z = 0.4;
+  g.add(branch3);
+  const branch4 = part(new THREE.CylinderGeometry(0.35, 0.18, 5, 5), branchColor, -1, 10, -2.5);
+  branch4.rotation.z = -0.5;
+  g.add(branch4);
+  return g;
+}, false);
+
+// Scrub: low dark-olive cluster of 3 small squashed spheres
+registerProp('scrub', { r: 3, h: 4 }, function() {
+  const g = new THREE.Group();
+  const scrubColor = new THREE.MeshLambertMaterial({ color: 0x6a6b3a });
+  const s1 = part(new THREE.SphereGeometry(1.8, 6, 5), scrubColor, 0, 1.5, 0);
+  s1.scale.y = 0.6;
+  g.add(s1);
+  const s2 = part(new THREE.SphereGeometry(1.4, 6, 5), scrubColor, 1.8, 1.2, 0.8);
+  s2.scale.y = 0.6;
+  g.add(s2);
+  const s3 = part(new THREE.SphereGeometry(1.5, 6, 5), scrubColor, -1.5, 1.3, -1);
+  s3.scale.y = 0.6;
+  g.add(s3);
+  return g;
+}, false);
+
+// Hitch rail: 2 short wood posts + horizontal crossbar
+registerProp('hitchrail', { r: 5, h: 6 }, function() {
+  const g = new THREE.Group();
+  const postColor = new THREE.MeshLambertMaterial({ color: 0x7a5838 });
+  // Left post
+  g.add(part(new THREE.CylinderGeometry(0.6, 0.6, 5, 6), postColor, -3, 2.5, 0));
+  // Right post
+  g.add(part(new THREE.CylinderGeometry(0.6, 0.6, 5, 6), postColor, 3, 2.5, 0));
+  // Horizontal crossbar
+  g.add(part(new THREE.BoxGeometry(6.5, 0.5, 0.8), postColor, 0, 3.5, 0));
+  return g;
+}, false);
+
+// Lantern post: wood pole + small warm lantern box + tiny roof cap
+registerProp('lanternpost', { r: 2, h: 12 }, function() {
+  const g = new THREE.Group();
+  const poleColor = new THREE.MeshLambertMaterial({ color: 0x7a5838 });
+  // Main pole
+  g.add(part(new THREE.CylinderGeometry(0.5, 0.5, 11, 6), poleColor, 0, 5.5, 0));
+  // Lantern box
+  g.add(part(new THREE.BoxGeometry(1.5, 2, 1.5), LANTERN, 0, 11, 0));
+  // Tiny roof cap (cone)
+  g.add(part(new THREE.ConeGeometry(1.2, 0.8, 8), poleColor, 0, 12, 0));
+  return g;
+}, false);
 
 // Mesa rock: reuse island rock pattern but registered locally
 registerProp('mesa_rock', { r: 6, h: 8 }, function() {
@@ -353,16 +430,56 @@ function desertGroundTexture() {
       g.stroke();
     }
 
-    // Main street: packed dirt
+    // Main street: darker packed red-dirt with wagon-rut lines
     const streetWidth = 80;
     if (townAngle === 0 || townAngle === Math.PI) {
       // Vertical street (Z-aligned)
-      g.fillStyle = '#c09a62';
+      g.fillStyle = '#a97a4a';
       g.fillRect(X(townX - streetWidth/2), 0, streetWidth*sc, S);
+      // Twin wagon-rut lines down the street
+      g.strokeStyle = '#6a5a3a';
+      g.lineWidth = Math.max(2, 2*sc);
+      const rutOffset = streetWidth * 0.25;
+      // Left rut
+      g.beginPath();
+      for (let zz = -WORLD; zz <= WORLD; zz += 40) {
+        const xx = townX - rutOffset;
+        if (zz === -WORLD) g.moveTo(X(xx), X(zz));
+        else g.lineTo(X(xx), X(zz));
+      }
+      g.stroke();
+      // Right rut
+      g.beginPath();
+      for (let zz = -WORLD; zz <= WORLD; zz += 40) {
+        const xx = townX + rutOffset;
+        if (zz === -WORLD) g.moveTo(X(xx), X(zz));
+        else g.lineTo(X(xx), X(zz));
+      }
+      g.stroke();
     } else {
       // Horizontal street (X-aligned)
-      g.fillStyle = '#c09a62';
+      g.fillStyle = '#a97a4a';
       g.fillRect(0, X(townZ - streetWidth/2), S, streetWidth*sc);
+      // Twin wagon-rut lines down the street
+      g.strokeStyle = '#6a5a3a';
+      g.lineWidth = Math.max(2, 2*sc);
+      const rutOffset = streetWidth * 0.25;
+      // Front rut
+      g.beginPath();
+      for (let xx = -WORLD; xx <= WORLD; xx += 40) {
+        const zz = townZ - rutOffset;
+        if (xx === -WORLD) g.moveTo(X(xx), X(zz));
+        else g.lineTo(X(xx), X(zz));
+      }
+      g.stroke();
+      // Back rut
+      g.beginPath();
+      for (let xx = -WORLD; xx <= WORLD; xx += 40) {
+        const zz = townZ + rutOffset;
+        if (xx === -WORLD) g.moveTo(X(xx), X(zz));
+        else g.lineTo(X(xx), X(zz));
+      }
+      g.stroke();
     }
 
     // Railroad: two rails + perpendicular sleepers
@@ -415,10 +532,23 @@ function desertGroundTexture() {
       g.fill();
     }
 
-    // Scrub patches: small dots
-    for (let s = 0; s < 400; s++) {
-      g.fillStyle = `rgba(100,80,60,${rand(0.15, 0.35)})`;
-      g.fillRect(Math.random()*S, Math.random()*S, rand(2, 6), rand(2, 6));
+    // Denser speckle noise in 2 tones
+    for (let s = 0; s < 3000; s++) {
+      g.fillStyle = `rgba(0,0,0,${rand(0.01, 0.1)})`;
+      g.fillRect(Math.random()*S, Math.random()*S, rand(1, 5), rand(1, 5));
+    }
+    for (let s = 0; s < 2000; s++) {
+      g.fillStyle = `rgba(100,100,80,${rand(0.05, 0.15)})`;
+      g.fillRect(Math.random()*S, Math.random()*S, rand(2, 4), rand(2, 4));
+    }
+
+    // 200-300 tiny dry-grass tuft dots
+    const grassCount = 200 + ((Math.random()*100)|0);
+    for (let g_i = 0; g_i < grassCount; g_i++) {
+      g.fillStyle = '#b89a5c';
+      const gx = Math.random() * S;
+      const gz = Math.random() * S;
+      g.fillRect(gx, gz, rand(1.5, 3), rand(1.5, 3));
     }
   });
 }
@@ -427,6 +557,7 @@ function populate(addProp) {
   // Town: two rows of 8-12 wood buildings flanking main street
   const townBuildingCount = 8 + ((Math.random()*4)|0);
   const buildingSpacing = 60;
+  let buildingIndex = 0;
   for (let b = 0; b < townBuildingCount; b++) {
     let x, z;
     if (townAngle === 0 || townAngle === Math.PI) {
@@ -439,6 +570,14 @@ function populate(addProp) {
       z = townZ + (Math.random() < 0.5 ? -120 : 120) + rand(-20, 20);
     }
     addProp('woodbuilding', x, z, Math.random() * Math.PI*2);
+
+    // 50% chance: hitch rail in front of building
+    if (Math.random() < 0.5) {
+      const railX = x + (townAngle === 0 || townAngle === Math.PI ? 0 : rand(-20, 20));
+      const railZ = z + (townAngle === 0 || townAngle === Math.PI ? rand(-20, 20) : 0);
+      addProp('hitchrail', railX, railZ, 0);
+    }
+    buildingIndex++;
   }
 
   // Water tower on main street (1-2)
@@ -453,6 +592,22 @@ function populate(addProp) {
       z = townZ + rand(-80, 80);
     }
     addProp('watertower', x, z, 0);
+  }
+
+  // Lantern posts along main street (6-10)
+  const lanternCount = 6 + ((Math.random()*4)|0);
+  for (let l = 0; l < lanternCount; l++) {
+    let x, z;
+    if (townAngle === 0 || townAngle === Math.PI) {
+      // Along Z axis
+      z = townZ - 250 + (l / lanternCount) * 500;
+      x = townX + rand(-150, 150);
+    } else {
+      // Along X axis
+      x = townX - 250 + (l / lanternCount) * 500;
+      z = townZ + rand(-150, 150);
+    }
+    addProp('lanternpost', x, z, 0);
   }
 
   // Many people in town and scattered around
@@ -472,21 +627,24 @@ function populate(addProp) {
     else addProp('wagon', bx, bz, Math.random() * Math.PI*2);
   }
 
-  // Trees, bushes, dogs scattered throughout
-  for (let t = 0; t < 150; t++) {
-    addProp('tree', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
+  // Dead trees scattered throughout (50-80)
+  const deadtreeCount = 50 + ((Math.random()*30)|0);
+  for (let dt = 0; dt < deadtreeCount; dt++) {
+    addProp('deadtree', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  for (let b = 0; b < 200; b++) {
-    addProp('bush', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
+  // Scrub patches (70-100)
+  const scrubCount = 70 + ((Math.random()*30)|0);
+  for (let s = 0; s < scrubCount; s++) {
+    addProp('scrub', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
   for (let d = 0; d < 60; d++) {
     addProp('dog', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
   }
 
-  // Cacti everywhere outside town (60-100)
-  const cactiCount = 60 + ((Math.random()*40)|0);
+  // Cacti everywhere outside town (80-130)
+  const cactiCount = 80 + ((Math.random()*50)|0);
   for (let c = 0; c < cactiCount; c++) {
     let x, z, tries = 10;
     do {
@@ -496,14 +654,14 @@ function populate(addProp) {
     addProp('cactus', x, z, 0);
   }
 
-  // Tumbleweeds (20-30)
-  const tumbleweedCount = 20 + ((Math.random()*10)|0);
+  // Tumbleweeds (30-50)
+  const tumbleweedCount = 30 + ((Math.random()*20)|0);
   for (let t = 0; t < tumbleweedCount; t++) {
     addProp('tumbleweed', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  // Extra cacti within 250 units of town edge (15-20, for wild west densification)
-  const edgeCactiCount = 15 + ((Math.random()*5)|0);
+  // Extra cacti within 250 units of town edge (25-40, for wild west densification)
+  const edgeCactiCount = 25 + ((Math.random()*15)|0);
   for (let ec = 0; ec < edgeCactiCount; ec++) {
     // Random angle from town center, distance 200-250 from town center
     const angle = Math.random() * Math.PI*2;
@@ -550,36 +708,32 @@ function populate(addProp) {
   }
 
   // Mesa rocks scattered across desert
-  const rockCount = 80 + ((Math.random()*60)|0);
+  const rockCount = 120 + ((Math.random()*80)|0);
   for (let r = 0; r < rockCount; r++) {
     addProp('mesa_rock', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  // Scattered barrels and benches outside town
-  for (let b = 0; b < 30; b++) {
+  // Scattered barrels outside town (period-appropriate)
+  for (let b = 0; b < 60; b++) {
     addProp('barrel', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  for (let b = 0; b < 25; b++) {
-    addProp('bench', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+  // Additional scrub for landscape fill (keep theme consistent, no modern props)
+  const extraScrub = 50 + ((Math.random()*40)|0);
+  for (let s = 0; s < extraScrub; s++) {
+    addProp('scrub', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  // Street lamps and mailboxes along town
-  for (let s = 0; s < 40; s++) {
-    addProp('streetlight', townX + rand(-300, 300), townZ + rand(-300, 300), Math.random() * Math.PI*2);
+  // Extra dead trees for landscape
+  const extraDeadtree = 50 + ((Math.random()*30)|0);
+  for (let dt = 0; dt < extraDeadtree; dt++) {
+    addProp('deadtree', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 
-  for (let m = 0; m < 20; m++) {
-    addProp('mailbox', townX + rand(-300, 300), townZ + rand(-300, 300));
-  }
-
-  // Hydrants and trash cans scattered
-  for (let h = 0; h < 15; h++) {
-    addProp('hydrant', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
-  }
-
-  for (let t = 0; t < 20; t++) {
-    addProp('trashcan', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
+  // Extra tumbleweeds for atmosphere
+  const extraTumbleweed = 30 + ((Math.random()*20)|0);
+  for (let et = 0; et < extraTumbleweed; et++) {
+    addProp('tumbleweed', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
   }
 }
 

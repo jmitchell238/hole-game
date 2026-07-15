@@ -164,8 +164,7 @@ if (location.search.includes('debug=1')) {
   SAVE.debug = true;
   persistSave();
   unlockAllCosmetics();
-  debugChk.checked = SAVE.debug;
-  debugSection.classList.toggle('hidden', !SAVE.debug);
+  syncDebugUi();
   buildLevelSelect();
   updatePlayTab();
 }

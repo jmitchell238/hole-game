@@ -140,12 +140,15 @@ controlsSel.onchange = () => {
 };
 const debugChk = document.getElementById('debugChk');
 const debugSection = document.getElementById('debugSection');
-debugChk.checked = SAVE.debug;
-debugSection.classList.toggle('hidden', !SAVE.debug);
+function syncDebugUi() {
+  debugChk.checked = SAVE.debug;
+  debugSection.classList.toggle('hidden', !SAVE.debug);
+}
+syncDebugUi();
 debugChk.onchange = () => {
   SAVE.debug = debugChk.checked;
   persistSave();
-  debugSection.classList.toggle('hidden', !SAVE.debug);
+  syncDebugUi();
 };
 // Debug helper: grant every color and design so they can be previewed in-game.
 // "Reset all progress" below undoes it.
