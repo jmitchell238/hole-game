@@ -23,6 +23,7 @@ function init(level) {
   refreshGround();
   camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
   timeLeft = level.matchTime || MATCH_TIME;
+  matchTime = level.matchTime || MATCH_TIME;   // set global for grace period calculation
   lastLevel = 1;
 }
 

@@ -2,30 +2,32 @@
 // hole-vs-hole elimination, and the win/lose checks.
 
 function botThink(bot) {
+  // Flee from larger holes
   for (const o of holes) {
     if (o!==bot && o.r > bot.r*1.15 && dist(bot.x,bot.z,o.x,o.z) < o.r+140) {
       bot.tx = bot.x+(bot.x-o.x); bot.tz = bot.z+(bot.z-o.z); return;
     }
   }
-  let prey = null, pd = 240;
-  for (const o of holes) {
-    if (o!==bot && bot.r > o.r*1.15) {
-      const dd = dist(bot.x,bot.z,o.x,o.z);
-      if (dd < pd) { pd = dd; prey = o; }
-    }
-  }
-  if (prey) { bot.tx = prey.x; bot.tz = prey.z; return; }
+  // Prefer props over hunting holes
   let best = null, bd = 1e9;
   for (const ob of objects) {
     if (ob.falling || !canEat(bot, ob.r)) continue;
     const dd = dist(bot.x, bot.z, ob.x, ob.z);
     if (dd < bd) { bd = dd; best = ob; }
   }
-  if (best) { bot.tx = best.x; bot.tz = best.z; }
-  else {
-    const W = currentLevel.world;
-    bot.tx = rand(-W, W); bot.tz = rand(-W, W);
+  if (best) { bot.tx = best.x; bot.tz = best.z; return; }
+  // Hunt smaller holes only if 1.9x bigger AND within 250 units
+  let prey = null, pd = 250;
+  for (const o of holes) {
+    if (o!==bot && bot.r >= 1.9 * o.r) {
+      const dd = dist(bot.x,bot.z,o.x,o.z);
+      if (dd < pd) { pd = dd; prey = o; }
+    }
   }
+  if (prey) { bot.tx = prey.x; bot.tz = prey.z; return; }
+  // Random movement
+  const W = currentLevel.world;
+  bot.tx = rand(-W, W); bot.tz = rand(-W, W);
 }
 
 function update(dt) {
@@ -100,10 +102,13 @@ function update(dt) {
   objects = objects.filter(o => !o.dead);
 
   // Holes eat smaller holes — eliminated for good.
+  // Grace period: no hole-vs-hole eating during first 15 seconds of match
+  const elapsedTime = (matchTime || MATCH_TIME) - timeLeft;
+  const inGrace = elapsedTime < PVP_GRACE;
   for (const a of holes) {
     for (const b of holes) {
       if (a === b || b.eaten) continue;
-      if (a.r > b.r*1.15 && dist(a.x, a.z, b.x, b.z) < a.r) {
+      if (!inGrace && a.r >= 1.75 * b.r && dist(a.x, a.z, b.x, b.z) < a.r) {
         grow(a, areaOf(b.r)*GROW);
         b.eaten = true;
       }

@@ -45,6 +45,11 @@ for planning and verification.
   console-log checks only.
 - Cheap tells: identical md5sums across "different" screenshots, images that
   are error pages, "raw output" with no numbers in it.
+- COMMIT after every verified bead, before dispatching the next agent. A
+  RESUMED agent rewrites files from its stale context and will silently wipe
+  other agents' uncommitted work (this destroyed four beads' worth of changes
+  once). Parallel agents are only safe on disjoint files AND with no resumes;
+  when in doubt, run one agent at a time against a clean committed tree.
 
 Beads server: `dolt sql-server --port 3307` running from `~/.beads-dolt`
 (start it if `bd` reports the server unreachable).

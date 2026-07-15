@@ -1,6 +1,7 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
 const MATCH_TIME = 150;
+const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;
 const EAT_RATIO = 1.5;            // must be 1.5x an object's footprint to eat it
 const GRAVITY = 110;              // fall acceleration into the hole
@@ -32,5 +33,6 @@ function registerLevel(level) { LEVELS[level.id] = level; }
 let objects = [], holes = [], player = null;
 let currentLevel = null;
 let timeLeft = 0, levelTotal = 0;
+let matchTime = 0;                // total match duration (set for smoke tests; calculated as MATCH_TIME in normal play)
 let running = false, paused = false, last = 0;
 let dragging = false;
