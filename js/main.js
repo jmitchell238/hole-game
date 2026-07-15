@@ -6,6 +6,23 @@ function init(level) {
   document.getElementById('tags').innerHTML = '';
   for (const h of holes) removeHole(h);
   for (const o of objects) scene.remove(o.mesh);
+  // Dispose GPU resources before clearing objects
+  for (const o of objects) {
+    o.mesh.traverse(mesh => {
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
+        } else {
+          if (mesh.material.map) mesh.material.map.dispose();
+          mesh.material.dispose();
+        }
+      }
+    });
+  }
   objects = [];
   holes = [];
   applyEnvironment(level);

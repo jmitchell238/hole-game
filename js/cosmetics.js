@@ -22,74 +22,6 @@ function decoPart(geo, color, x, y, z) {
   return m;
 }
 
-function buildCat() {
-  const g = new THREE.Group();
-  for (const s of [-0.32, 0.32]) {                    // ears
-    const ear = decoPart(new THREE.ConeGeometry(0.17, 0.42, 6), 0xf0a04a,
-      Math.sin(s), 0.18, -Math.cos(s));
-    g.add(ear);
-    g.add(decoPart(new THREE.ConeGeometry(0.09, 0.22, 6), 0xff9ec4,
-      Math.sin(s)*0.99, 0.16, -Math.cos(s)*0.99));
-  }
-  const tail = decoPart(new THREE.CylinderGeometry(0.05, 0.08, 0.75, 6),
-    0xf0a04a, 0, 0.24, 1);                            // tail at the back
-  tail.rotation.x = 0.5;
-  g.add(tail);
-  g.userData.spin = 0.5;
-  return g;
-}
-
-function buildDog() {
-  const g = new THREE.Group();
-  for (const s of [-0.38, 0.38]) {                    // floppy ears
-    const ear = decoPart(new THREE.BoxGeometry(0.22, 0.5, 0.1), 0x8a6642,
-      Math.sin(s), 0.1, -Math.cos(s));
-    ear.rotation.z = s > 0 ? -0.45 : 0.45;
-    g.add(ear);
-  }
-  g.add(decoPart(new THREE.SphereGeometry(0.13, 8, 6), 0x3a3a3a, 0, 0.12, -1));
-  const tongue = decoPart(new THREE.BoxGeometry(0.14, 0.04, 0.3), 0xff7a8a,
-    0, 0.05, -1.05);
-  tongue.rotation.x = -0.4;
-  g.add(tongue);
-  g.userData.spin = 0.5;
-  return g;
-}
-
-function buildDragon() {
-  const g = new THREE.Group();
-  for (let k = 0; k < 9; k++) {                       // rim spikes
-    const th = k/9 * Math.PI*2;
-    const spike = decoPart(new THREE.ConeGeometry(0.13, 0.5, 5), 0xa02818,
-      Math.cos(th), 0.2, Math.sin(th));
-    spike.rotation.z = 0.5 * Math.cos(th);
-    spike.rotation.x = -0.5 * Math.sin(th);
-    g.add(spike);
-  }
-  for (const s of [-1, 1]) {                          // wings
-    const wing = decoPart(new THREE.ConeGeometry(0.45, 1.1, 4), 0x7a1e10,
-      s * 1.05, 0.42, 0.25);
-    wing.rotation.z = s * 2.3;
-    wing.scale.z = 0.25;
-    g.add(wing);
-  }
-  g.userData.spin = 0.9;
-  return g;
-}
-
-function buildTornado() {
-  const g = new THREE.Group();
-  for (let k = 0; k < 5; k++) {                       // rising storm rings
-    const ring = decoPart(
-      new THREE.TorusGeometry(0.34 + k*0.16, 0.045, 6, 20), 0x9aa2a8,
-      Math.cos(k*2.1)*0.08, 0.25 + k*0.3, Math.sin(k*2.1)*0.08);
-    ring.rotation.x = Math.PI/2;
-    g.add(ring);
-  }
-  g.userData.spin = 4;
-  return g;
-}
-
 // Flood-fill helper: erase checkerboard background starting from corners
 function floodFillCheckboard(ctx, width, height, tolerance) {
   const imageData = ctx.getImageData(0, 0, width, height);
@@ -215,10 +147,6 @@ function buildSkin(url, cx, cy, rf, processImage) {
 }
 
 const HOLE_DESIGNS = [
-  { id: 'tornado', name: 'Tornado', emoji: '🌪️', cost: 100, build: buildTornado },
-  { id: 'dog',     name: 'Dog',     emoji: '🐶', cost: 150, build: buildDog },
-  { id: 'cat',     name: 'Cat',     emoji: '🐱', cost: 200, build: buildCat },
-  { id: 'dragon',  name: 'Dragon',  emoji: '🐲', cost: 250, build: buildDragon },
   // Image-based skins: measured circle params (cx, cy, rf) from PNG
   { id: 'blackcat', name: 'Black Cat', img: 'art/Black_Cat_Transparent.png', cost: 200,
     build: () => buildSkin('art/Black_Cat_Transparent.png', 0.497608, 0.692185, 0.274322, false) },

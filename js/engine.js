@@ -9,6 +9,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const frameEl = document.getElementById('frame');
 frameEl.appendChild(renderer.domElement);
 
+// Handle WebGL context loss by reloading
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); location.reload(); });
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
 

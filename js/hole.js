@@ -61,9 +61,8 @@ function makeHole(x, z, name, isPlayer) {
     tagColor = col.hex;
     if (col.id !== 'emerald') pitMat = customPitMaterial(col.hex);
     if (Math.random() < 0.55) {
-      const designs = [buildCat, buildDog, buildDragon, buildTornado];
-      const designFn = designs[Math.floor(Math.random() * designs.length)];
-      deco = designFn();
+      const designEntry = HOLE_DESIGNS[Math.floor(Math.random() * HOLE_DESIGNS.length)];
+      deco = designEntry.build();
       scene.add(deco);
     }
   }
