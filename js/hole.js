@@ -54,6 +54,18 @@ function makeHole(x, z, name, isPlayer) {
     if (col.id !== 'emerald') pitMat = customPitMaterial(col.hex);
     const design = equippedDesign();
     if (design) { deco = design.build(); scene.add(deco); }
+  } else {
+    // Bot holes: pick random color and 55% chance for a design
+    const col = HOLE_COLORS[Math.floor(Math.random() * HOLE_COLORS.length)];
+    ringColor = parseInt(col.hex.slice(1), 16);
+    tagColor = col.hex;
+    if (col.id !== 'emerald') pitMat = customPitMaterial(col.hex);
+    if (Math.random() < 0.55) {
+      const designs = [buildCat, buildDog, buildDragon, buildTornado];
+      const designFn = designs[Math.floor(Math.random() * designs.length)];
+      deco = designFn();
+      scene.add(deco);
+    }
   }
   // A real pit: cylindrical wall fading to black, with a floor far below.
   const wall = new THREE.Mesh(PIT_GEO, pitMat);
@@ -67,18 +79,51 @@ function makeHole(x, z, name, isPlayer) {
   ring.rotation.x = -Math.PI/2;
   ring.position.set(x, 0.22 + Math.random()*0.08, z);
   scene.add(wall); scene.add(cap); scene.add(ring);
+
+  // Ghost ring for player: x-ray silhouette when behind buildings
+  let ghost = null;
+  if (isPlayer) {
+    ghost = new THREE.Mesh(
+      new THREE.RingGeometry(0.88, 1.06, 48),
+      new THREE.MeshBasicMaterial({
+        color: ringColor,
+        transparent: true,
+        opacity: 0.3,
+        depthTest: false,
+        depthWrite: false
+      }));
+    ghost.rotation.x = -Math.PI/2;
+    ghost.position.set(x, 0.22 + Math.random()*0.08 + 0.02, z);
+    ghost.renderOrder = 999;
+    scene.add(ghost);
+  }
+
   const tag = document.createElement('div');
   tag.className = 'tag'; tag.textContent = name;
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
-  return { wall, cap, ring, tag, deco, x, z, r: 12, name, isPlayer,
+  return { wall, cap, ring, ghost, tag, deco, x, z, r: 12, name, isPlayer,
     tx: x, tz: z, retarget: 0, _ringLv: 1,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }
 
 function removeHole(h) {
   scene.remove(h.wall); scene.remove(h.cap); scene.remove(h.ring);
-  if (h.deco) scene.remove(h.deco);
+  if (h.ghost) {
+    scene.remove(h.ghost);
+    if (h.ghost.geometry) h.ghost.geometry.dispose();
+    if (h.ghost.material) h.ghost.material.dispose();
+  }
+  if (h.deco) {
+    scene.remove(h.deco);
+    h.deco.traverse(mesh => {
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material && mesh.material.map) {
+        mesh.material.map.dispose();
+        mesh.material.dispose();
+      }
+    });
+  }
   if (h.customPit) {
     if (h.customPit.map) h.customPit.map.dispose();
     h.customPit.dispose();
@@ -99,13 +144,21 @@ function syncHole(h) {
   h.cap.position.x = h.x;  h.cap.position.z = h.z;
   h.ring.position.x = h.x; h.ring.position.z = h.z;
 
+  // Sync ghost ring (player only)
+  if (h.ghost) {
+    h.ghost.scale.set(s, s, s);
+    h.ghost.position.x = h.x; h.ghost.position.z = h.z;
+  }
+
   // Rebuild ring geometry when sizeLevel changes
   const currentLv = sizeLevel(h.r);
   if (currentLv !== h._ringLv) {
     h._ringLv = currentLv;
     if (h.ring.geometry) h.ring.geometry.dispose();
+    if (h.ghost && h.ghost.geometry) h.ghost.geometry.dispose();
     const band = 0.12 * clamp(30 / h.r, 0.3, 1);
     h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, 48);
+    if (h.ghost) h.ghost.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, 48);
   }
 
   if (h.deco) {

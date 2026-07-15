@@ -9,6 +9,31 @@ let railroadAngle;          // railroad direction (independent random)
 let railroadX, railroadZ;   // railroad offset
 let ranches = [];           // { x, z, ranchAngle }
 
+// Exclusion zone helpers
+function onStreet(x, z) {
+  const streetWidth = 80;
+  const margin = 15;
+  const halfW = streetWidth / 2 + margin;
+  if (townAngle === 0 || townAngle === Math.PI) {
+    return Math.abs(x - townX) <= halfW && Math.abs(z - townZ) <= 250;
+  } else {
+    return Math.abs(z - townZ) <= halfW && Math.abs(x - townX) <= 250;
+  }
+}
+
+function onRail(x, z) {
+  const railDist = 18;
+  const dx = Math.cos(railroadAngle);
+  const dz = Math.sin(railroadAngle);
+  const px = x - railroadX;
+  const pz = z - railroadZ;
+  const dot = px * dx + pz * dz;
+  const perpx = px - dot * dx;
+  const perpz = pz - dot * dz;
+  const dist = Math.hypot(perpx, perpz);
+  return dist <= railDist;
+}
+
 // ---- Desert-specific props -------------------------------------------------------
 const WOOD = new THREE.MeshLambertMaterial({ color: 0x8a6642 });
 const CACTUS_GREEN = new THREE.MeshLambertMaterial({ color: 0x4a9e3f });
@@ -341,10 +366,20 @@ function generate() {
   // Main street random cardinal direction
   townAngle = pick([0, Math.PI/2, Math.PI, 3*Math.PI/2]);
 
-  // Railroad: random angle and offset (independent)
+  // Railroad: random angle and offset, must be >= 150 units from town center
   railroadAngle = rand(0, Math.PI*2);
-  railroadX = rand(-WORLD/2, WORLD/2);
-  railroadZ = rand(-WORLD/2, WORLD/2);
+  let tries = 50;
+  let perpDist;
+  do {
+    railroadX = rand(-WORLD/2, WORLD/2);
+    railroadZ = rand(-WORLD/2, WORLD/2);
+    // Calculate perpendicular distance from town center to railroad line
+    const dx = Math.cos(railroadAngle);
+    const dz = Math.sin(railroadAngle);
+    const px = townX - railroadX;
+    const pz = townZ - railroadZ;
+    perpDist = Math.abs(px * dz - pz * dx);
+  } while (tries-- > 0 && perpDist < 150);
 
   // 3-5 ranches scattered outside town (> 300 from town)
   ranches = [];
@@ -359,6 +394,29 @@ function generate() {
   }
 
   this.world = WORLD;
+
+  // Store debug data for smoke test
+  const streetWidth = 80;
+  const streetMargin = 15;
+  const halfW = streetWidth / 2 + streetMargin;
+  const dx = Math.cos(railroadAngle);
+  const dz = Math.sin(railroadAngle);
+  const perpDistToTown = Math.abs((townX - railroadX) * dz - (townZ - railroadZ) * dx);
+  if (townAngle === 0 || townAngle === Math.PI) {
+    this.debugTown = {
+      streetRect: { minX: townX - halfW, maxX: townX + halfW, minZ: townZ - 250, maxZ: townZ + 250 },
+      railLine: { baseX: railroadX, baseZ: railroadZ, angle: railroadAngle },
+      railDist: 18,
+      railTownDist: perpDistToTown
+    };
+  } else {
+    this.debugTown = {
+      streetRect: { minX: townX - 250, maxX: townX + 250, minZ: townZ - halfW, maxZ: townZ + halfW },
+      railLine: { baseX: railroadX, baseZ: railroadZ, angle: railroadAngle },
+      railDist: 18,
+      railTownDist: perpDistToTown
+    };
+  }
 
   // Player spawn on main street, town center
   if (townAngle === 0 || townAngle === Math.PI) {
@@ -407,26 +465,31 @@ function desertGroundTexture() {
       g.fillRect(Math.random()*S, Math.random()*S, rand(3, 8), rand(3, 8));
     }
 
-    // Dry riverbed: wavy dark band
-    const riverY = townZ + rand(-200, 200);
-    g.strokeStyle = '#b08c5a';
-    g.lineWidth = 40;
+    // Dry riverbed: wavy dark band, distinct and darker
+    let riverY = townZ + rand(-200, 200);
+    // Keep riverbed from crossing town rectangle
+    let riverTries = 50;
+    while (riverTries-- > 0 && Math.abs(riverY - townZ) <= 300) {
+      riverY = townZ + rand(-500, 500);
+    }
+    g.strokeStyle = '#8a6b46';
+    g.lineWidth = 50;
     g.beginPath();
     for (let xx = -WORLD; xx <= WORLD; xx += 50) {
-      const yy = riverY + Math.sin(xx / 400) * 80;
+      const yy = riverY + Math.sin(xx / 400) * 100;
       if (xx === -WORLD) g.moveTo(X(xx), X(yy));
       else g.lineTo(X(xx), X(yy));
     }
     g.stroke();
-    // Cracked-line strokes in riverbed
-    for (let c = 0; c < 100; c++) {
+    // Cracked-line strokes in riverbed for texture
+    for (let c = 0; c < 150; c++) {
       const cx = rand(-WORLD, WORLD);
-      const cy = riverY + rand(-40, 40);
-      g.strokeStyle = 'rgba(0,0,0,0.1)';
+      const cy = riverY + rand(-50, 50);
+      g.strokeStyle = 'rgba(0,0,0,0.15)';
       g.lineWidth = 1;
       g.beginPath();
       g.moveTo(X(cx), X(cy));
-      g.lineTo(X(cx + rand(-50, 50)), X(cy + rand(-50, 50)));
+      g.lineTo(X(cx + rand(-60, 60)), X(cy + rand(-60, 60)));
       g.stroke();
     }
 
@@ -571,41 +634,54 @@ function populate(addProp) {
     }
     addProp('woodbuilding', x, z, Math.random() * Math.PI*2);
 
-    // 50% chance: hitch rail in front of building
+    // 50% chance: hitch rail in front of building, between building and street
     if (Math.random() < 0.5) {
-      const railX = x + (townAngle === 0 || townAngle === Math.PI ? 0 : rand(-20, 20));
-      const railZ = z + (townAngle === 0 || townAngle === Math.PI ? rand(-20, 20) : 0);
+      let railX, railZ;
+      if (townAngle === 0 || townAngle === Math.PI) {
+        // Street runs Z; rail sits between street edge (±47) and building (±120)
+        railX = townX + (x > townX ? rand(55, 110) : rand(-110, -55));
+        railZ = z;
+      } else {
+        // Street runs X; rail sits between street edge (±47) and building (±120)
+        railX = x;
+        railZ = townZ + (z > townZ ? rand(55, 110) : rand(-110, -55));
+      }
       addProp('hitchrail', railX, railZ, 0);
     }
     buildingIndex++;
   }
 
-  // Water tower on main street (1-2)
+  // Water tower beside the street (1-2), offset perpendicular from street axis
   const wtCount = Math.random() < 0.5 ? 1 : 2;
+  const streetWidth = 80;
+  const wtOffset = streetWidth / 2 + 30 + rand(0, 10);
   for (let w = 0; w < wtCount; w++) {
     let x, z;
     if (townAngle === 0 || townAngle === Math.PI) {
+      // Street runs Z; offset perpendicular in X
       z = townZ + (w === 0 ? -180 : 180);
-      x = townX + rand(-80, 80);
+      x = townX + (Math.random() < 0.5 ? wtOffset : -wtOffset);
     } else {
+      // Street runs X; offset perpendicular in Z
       x = townX + (w === 0 ? -180 : 180);
-      z = townZ + rand(-80, 80);
+      z = townZ + (Math.random() < 0.5 ? wtOffset : -wtOffset);
     }
     addProp('watertower', x, z, 0);
   }
 
-  // Lantern posts along main street (6-10)
+  // Lantern posts along main street (6-10), sit between building and street edge
   const lanternCount = 6 + ((Math.random()*4)|0);
+  const lanternOffset = 55 + rand(0, 55);  // Between street edge (47) and building row (120)
   for (let l = 0; l < lanternCount; l++) {
     let x, z;
     if (townAngle === 0 || townAngle === Math.PI) {
-      // Along Z axis
+      // Along Z axis; lanterns alternate sides between street and buildings
       z = townZ - 250 + (l / lanternCount) * 500;
-      x = townX + rand(-150, 150);
+      x = townX + (Math.random() < 0.5 ? lanternOffset : -lanternOffset);
     } else {
-      // Along X axis
+      // Along X axis; lanterns alternate sides
       x = townX - 250 + (l / lanternCount) * 500;
-      z = townZ + rand(-150, 150);
+      z = townZ + (Math.random() < 0.5 ? lanternOffset : -lanternOffset);
     }
     addProp('lanternpost', x, z, 0);
   }
@@ -619,8 +695,11 @@ function populate(addProp) {
 
   // Barrels, horses (longhorns), wagons near town
   for (let b = 0; b < 40; b++) {
-    const bx = townX + rand(-250, 250);
-    const bz = townZ + rand(-250, 250);
+    let bx, bz, tries = 10;
+    do {
+      bx = townX + rand(-250, 250);
+      bz = townZ + rand(-250, 250);
+    } while (tries-- > 0 && (onStreet(bx, bz) || onRail(bx, bz)));
     const roll = Math.random();
     if (roll < 0.4) addProp('barrel', bx, bz, 0);
     else if (roll < 0.7) addProp('longhorn', bx, bz, 0);
@@ -630,17 +709,32 @@ function populate(addProp) {
   // Dead trees scattered throughout (50-80)
   const deadtreeCount = 50 + ((Math.random()*30)|0);
   for (let dt = 0; dt < deadtreeCount; dt++) {
-    addProp('deadtree', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('deadtree', x, z, 0);
   }
 
   // Scrub patches (70-100)
   const scrubCount = 70 + ((Math.random()*30)|0);
   for (let s = 0; s < scrubCount; s++) {
-    addProp('scrub', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('scrub', x, z, 0);
   }
 
   for (let d = 0; d < 60; d++) {
-    addProp('dog', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150));
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('dog', x, z);
   }
 
   // Cacti everywhere outside town (80-130)
@@ -650,24 +744,32 @@ function populate(addProp) {
     do {
       x = rand(-WORLD + 150, WORLD - 150);
       z = rand(-WORLD + 150, WORLD - 150);
-    } while (tries-- > 0 && Math.hypot(x - townX, z - townZ) < 250);
+    } while (tries-- > 0 && (Math.hypot(x - townX, z - townZ) < 250 || onStreet(x, z) || onRail(x, z)));
     addProp('cactus', x, z, 0);
   }
 
-  // Tumbleweeds (30-50)
+  // Tumbleweeds (30-50) - allowed on street but NOT on rail
   const tumbleweedCount = 30 + ((Math.random()*20)|0);
   for (let t = 0; t < tumbleweedCount; t++) {
-    addProp('tumbleweed', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && onRail(x, z));
+    addProp('tumbleweed', x, z, 0);
   }
 
   // Extra cacti within 250 units of town edge (25-40, for wild west densification)
   const edgeCactiCount = 25 + ((Math.random()*15)|0);
   for (let ec = 0; ec < edgeCactiCount; ec++) {
     // Random angle from town center, distance 200-250 from town center
-    const angle = Math.random() * Math.PI*2;
-    const dist = 200 + Math.random() * 50;
-    const x = townX + Math.cos(angle) * dist;
-    const z = townZ + Math.sin(angle) * dist;
+    let x, z, tries = 10;
+    do {
+      const angle = Math.random() * Math.PI*2;
+      const dist = 200 + Math.random() * 50;
+      x = townX + Math.cos(angle) * dist;
+      z = townZ + Math.sin(angle) * dist;
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
     addProp('cactus', x, z, 0);
   }
 
@@ -710,30 +812,55 @@ function populate(addProp) {
   // Mesa rocks scattered across desert
   const rockCount = 120 + ((Math.random()*80)|0);
   for (let r = 0; r < rockCount; r++) {
-    addProp('mesa_rock', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('mesa_rock', x, z, 0);
   }
 
   // Scattered barrels outside town (period-appropriate)
   for (let b = 0; b < 60; b++) {
-    addProp('barrel', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('barrel', x, z, 0);
   }
 
   // Additional scrub for landscape fill (keep theme consistent, no modern props)
   const extraScrub = 50 + ((Math.random()*40)|0);
   for (let s = 0; s < extraScrub; s++) {
-    addProp('scrub', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('scrub', x, z, 0);
   }
 
   // Extra dead trees for landscape
   const extraDeadtree = 50 + ((Math.random()*30)|0);
   for (let dt = 0; dt < extraDeadtree; dt++) {
-    addProp('deadtree', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && (onStreet(x, z) || onRail(x, z)));
+    addProp('deadtree', x, z, 0);
   }
 
   // Extra tumbleweeds for atmosphere
   const extraTumbleweed = 30 + ((Math.random()*20)|0);
   for (let et = 0; et < extraTumbleweed; et++) {
-    addProp('tumbleweed', rand(-WORLD + 150, WORLD - 150), rand(-WORLD + 150, WORLD - 150), 0);
+    let x, z, tries = 10;
+    do {
+      x = rand(-WORLD + 150, WORLD - 150);
+      z = rand(-WORLD + 150, WORLD - 150);
+    } while (tries-- > 0 && onRail(x, z));
+    addProp('tumbleweed', x, z, 0);
   }
 }
 

@@ -103,6 +103,8 @@ function buildGround(level) {
   buildSkirt(level);
   if (ground) {
     scene.remove(ground);
+    if (ground.material.map) ground.material.map.dispose();
+    ground.material.dispose();
     if (ground.geometry) ground.geometry.dispose();
   }
   const gtex = level.createGroundTexture();

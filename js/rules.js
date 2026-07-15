@@ -77,6 +77,11 @@ function update(dt) {
       // Growth counts once it's fully below the surface…
       if (!ob.swallowed && ob.mesh.position.y < -(ob.h + 3)) {
         grow(h, areaOf(ob.r)*GROW); ob.swallowed = true;
+        // Spawn popup for player only
+        if (h.isPlayer) {
+          const pts = Math.max(1, Math.round(ob.r));
+          spawnPopup(h, pts);
+        }
       }
       // …but the object keeps tumbling down the pit, and is only removed
       // once it has sunk completely out of sight below the pit floor.

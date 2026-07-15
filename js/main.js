@@ -26,11 +26,30 @@ function init(level) {
   lastLevel = 1;
 }
 
+// ---- Popup system for eat feedback -------------------------------------------
+let popupPool = [];
+let nextPopupId = 0;
+function spawnPopup(h, pts) {
+  let popup;
+  if (popupPool.length > 0) {
+    popup = popupPool.pop();
+  } else {
+    popup = document.createElement('div');
+    popup.className = 'popup';
+    document.getElementById('tags').appendChild(popup);
+  }
+  popup.textContent = '+' + pts;
+  popup.style.display = 'block';
+  popup.userData = { hole: h, startTime: performance.now(), id: nextPopupId++ };
+  popupPool.live = (popupPool.live || 0) + 1;
+  return popup;
+}
+
 // ---- Camera + render -----------------------------------------------------------
 let camPos = new THREE.Vector3(0, 200, 160);
 function render() {
   const rz = player.r <= 120 ? player.r : 120 + (player.r - 120) * 0.45;
-  const height = 115 + rz*4.2, depth = 95 + rz*3.6;
+  const height = 28 + rz*1.35, depth = 24 + rz*1.15;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
   camPos.lerp(want, 0.06);
   camera.position.copy(camPos);
@@ -44,9 +63,11 @@ function render() {
   sun.position.set(player.x - 260, 520, player.z + 180);
   sun.target.position.set(player.x, 0, player.z);
 
-  // Spin the equipped hole design.
-  if (player.deco)
-    player.deco.rotation.y = performance.now()/1000 * player.deco.userData.spin;
+  // Spin all hole decos.
+  for (const h of holes) {
+    if (h.deco)
+      h.deco.rotation.y = performance.now()/1000 * h.deco.userData.spin;
+  }
 
   renderer.render(scene, camera);
 
@@ -58,6 +79,26 @@ function render() {
     h.tag.style.left = (v.x*0.5+0.5)*FRAME.w + 'px';
     h.tag.style.top  = (-v.y*0.5+0.5)*FRAME.h + 'px';
   }
+
+  // Update popups: project and age them
+  const popupsToRemove = [];
+  document.querySelectorAll('.popup').forEach(popup => {
+    if (!popup.userData) return;
+    const age = (performance.now() - popup.userData.startTime) / 1000;
+    if (age > 0.8) {
+      popup.style.display = 'none';
+      popupsToRemove.push(popup);
+      popupPool.live = Math.max(0, (popupPool.live || 0) - 1);
+    } else {
+      const h = popup.userData.hole;
+      const pv = new THREE.Vector3(h.x, 6, h.z).project(camera);
+      if (pv.z <= 1) {
+        popup.style.left = (pv.x*0.5+0.5)*FRAME.w + 'px';
+        popup.style.top  = (-pv.y*0.5+0.5)*FRAME.h + 'px';
+      }
+    }
+  });
+  popupsToRemove.forEach(p => { popupPool.push(p); });
 }
 
 // ---- Flow -----------------------------------------------------------------------

@@ -28,9 +28,78 @@
 // Rolled fresh by generate() at the start of every match.
 let GRID_N, BLOCK, ROAD, P, WORLD;
 let blockPlan = [];
+let blockFlavors = [];          // texture flavor per block (parking, plaza, lawn-shade)
+let coreBlocks = new Set();     // blocks flagged as city-center core
 let spawnI, spawnJ;             // which block the player spawns in (a park)
+let skyrisesPlaced = 0;         // track skyrise count for smoke test
+let tallestProp = 0;            // track tallest prop for smoke test
 
 const blockOrigin = (i, j) => [ -WORLD + ROAD + i*P, -WORLD + ROAD + j*P ];
+
+// Register skyrise props (tall buildings for city-center core district)
+function registerSkyrisesProps() {
+  registerProp('skyrise', { r: 16, h: 110 }, function() {
+    const g = new THREE.Group();
+    const colors = [0x5d6a75, 0x6b7a85, 0x4d5a65];
+    const wall = new THREE.MeshLambertMaterial({ map: towerWall() });
+    // Main tower body with setbacks
+    const baseH = 50;
+    const box1 = new THREE.Mesh(new THREE.BoxGeometry(32, baseH, 32),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x6b7680}),
+       new THREE.MeshLambertMaterial({color: 0x6b7680}), wall, wall]);
+    box1.position.y = baseH/2; g.add(box1);
+
+    const midH = 40;
+    const box2 = new THREE.Mesh(new THREE.BoxGeometry(26, midH, 26),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x6b7680}),
+       new THREE.MeshLambertMaterial({color: 0x6b7680}), wall, wall]);
+    box2.position.y = baseH + midH/2; g.add(box2);
+
+    const topH = 18;
+    const box3 = new THREE.Mesh(new THREE.BoxGeometry(18, topH, 18),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x6b7680}),
+       new THREE.MeshLambertMaterial({color: 0x6b7680}), wall, wall]);
+    box3.position.y = baseH + midH + topH/2; g.add(box3);
+
+    // Rooftop antenna
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 3, 8),
+      new THREE.MeshLambertMaterial({color: 0x3a4048})).translateY(baseH + midH + topH + 1.5));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 8, 6),
+      new THREE.MeshLambertMaterial({color: 0xc0c0c0})).translateY(baseH + midH + topH + 5));
+
+    return g;
+  }, true);
+
+  registerProp('skyrise2', { r: 14, h: 88 }, function() {
+    const g = new THREE.Group();
+    const wall = new THREE.MeshLambertMaterial({ map: towerWall() });
+    // Alternative silhouette: more tapered
+    const baseH = 45;
+    const box1 = new THREE.Mesh(new THREE.BoxGeometry(28, baseH, 28),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x5a6a75}),
+       new THREE.MeshLambertMaterial({color: 0x5a6a75}), wall, wall]);
+    box1.position.y = baseH/2; g.add(box1);
+
+    const midH = 28;
+    const box2 = new THREE.Mesh(new THREE.BoxGeometry(20, midH, 20),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x5a6a75}),
+       new THREE.MeshLambertMaterial({color: 0x5a6a75}), wall, wall]);
+    box2.position.y = baseH + midH/2; g.add(box2);
+
+    const topH = 12;
+    const box3 = new THREE.Mesh(new THREE.BoxGeometry(12, topH, 12),
+      [wall, wall, new THREE.MeshLambertMaterial({color: 0x5a6a75}),
+       new THREE.MeshLambertMaterial({color: 0x5a6a75}), wall, wall]);
+    box3.position.y = baseH + midH + topH/2; g.add(box3);
+
+    // Rooftop detail
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.5, 8),
+      new THREE.MeshLambertMaterial({color: 0x3a4048})).translateY(baseH + midH + topH + 1.25));
+
+    return g;
+  }, true);
+}
+registerSkyrisesProps();
 
 // District plan: one downtown cluster (two on big maps) seeded at random,
 // parks scattered through the rest, suburbs everywhere else. The player's
@@ -48,16 +117,36 @@ function planCity() {
     seeds.push([si, sj]);
   }
 
+  // Promote the first seed (or only seed) to core district
+  const coreSeed = seeds[0];
+
   blockPlan = [];
+  blockFlavors = [];
+  coreBlocks.clear();
   for (let i = 0; i < GRID_N; i++) {
     blockPlan[i] = [];
+    blockFlavors[i] = [];
     for (let j = 0; j < GRID_N; j++) {
       if (i === spawnI && j === spawnJ) { blockPlan[i][j] = 'park'; continue; }
       const nearSeed = seeds.some(([si, sj]) =>
         Math.max(Math.abs(i-si), Math.abs(j-sj)) <= 1);
-      blockPlan[i][j] = nearSeed
-        ? (Math.random() < 0.85 ? 'downtown' : 'park')
-        : (Math.random() < 0.2 ? 'park' : 'residential');
+
+      if (nearSeed) {
+        blockPlan[i][j] = (Math.random() < 0.85 ? 'downtown' : 'park');
+        // Mark core district blocks (2-4 blocks around first seed)
+        const distToCore = Math.max(Math.abs(i-coreSeed[0]), Math.abs(j-coreSeed[1]));
+        if (distToCore <= 1 && Math.random() < 0.8) {
+          coreBlocks.add(`${i},${j}`);
+          blockFlavors[i][j] = 'plaza';  // plaza paving in core
+        } else {
+          blockFlavors[i][j] = Math.random() < 0.5 ? 'parking' : 'lawn-a';
+        }
+      } else {
+        blockPlan[i][j] = (Math.random() < 0.2 ? 'park' : 'residential');
+        // Residential and park blocks get varied lawn tints
+        const lawnShades = ['lawn-a', 'lawn-b', 'lawn-c'];
+        blockFlavors[i][j] = pick(lawnShades);
+      }
     }
   }
 }
@@ -96,6 +185,7 @@ function cityGroundTexture() {
     g.fillStyle = '#4b5058'; g.fillRect(0, 0, S, S);            // asphalt
     for (let i = 0; i < GRID_N; i++) for (let j = 0; j < GRID_N; j++) {
       const [x0, z0] = blockOrigin(i, j), type = blockPlan[i][j];
+      const flavor = blockFlavors[i] && blockFlavors[i][j];
       g.fillStyle = '#b5bac0';                                   // sidewalk
       g.fillRect(X(x0), X(z0), BLOCK*sc, BLOCK*sc);
       g.strokeStyle = '#a3a8ae'; g.lineWidth = 1.5;              // tile joints
@@ -106,9 +196,44 @@ function cityGroundTexture() {
       }
       g.stroke();
       const SW = 16;
-      g.fillStyle = type === 'downtown' ? '#a4aab1'
-                  : type === 'park'     ? '#6abf5e' : '#79c46b';
-      g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+
+      // Per-block texture flavor
+      if (flavor === 'plaza') {
+        // Light plaza paving with subtle grid
+        g.fillStyle = '#d4d8dc';
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+        g.strokeStyle = '#a8b0ba'; g.lineWidth = 1;
+        for (let t = SW; t <= BLOCK-SW; t += 32) {
+          g.beginPath();
+          g.moveTo(X(x0+t), X(z0+SW)); g.lineTo(X(x0+t), X(z0+BLOCK-SW));
+          g.moveTo(X(x0+SW), X(z0+t)); g.lineTo(X(x0+BLOCK-SW), X(z0+t));
+          g.stroke();
+        }
+      } else if (flavor === 'parking') {
+        // Gray parking lot with white stall lines
+        g.fillStyle = '#8a8e94';
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+        g.strokeStyle = '#f2f4f6'; g.lineWidth = 1;
+        for (let t = SW; t <= BLOCK-SW; t += 40) {
+          g.beginPath();
+          g.moveTo(X(x0+SW), X(z0+t)); g.lineTo(X(x0+BLOCK-SW), X(z0+t));
+          g.stroke();
+        }
+      } else if (flavor === 'lawn-a') {
+        g.fillStyle = '#6abf5e';  // bright green
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+      } else if (flavor === 'lawn-b') {
+        g.fillStyle = '#5db055';  // medium green
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+      } else if (flavor === 'lawn-c') {
+        g.fillStyle = '#79c46b';  // light green
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+      } else {
+        // Default downtown/fallback
+        g.fillStyle = type === 'downtown' ? '#a4aab1'
+                    : type === 'park'     ? '#6abf5e' : '#79c46b';
+        g.fillRect(X(x0+SW), X(z0+SW), (BLOCK-2*SW)*sc, (BLOCK-2*SW)*sc);
+      }
     }
     // Lane dashes.
     g.strokeStyle = '#e8d44d'; g.lineWidth = Math.max(2, 2.2*sc);
@@ -136,130 +261,180 @@ function cityGroundTexture() {
 }
 
 function populate(addProp) {
+  // Reset metrics for this match
+  skyrisesPlaced = 0;
+  tallestProp = 0;
+
+  // Wrapper to track skyrise placements and props
+  const origAddProp = addProp;
+  const wrappedAddProp = (name, x, z, rotY) => {
+    if (name === 'skyrise' || name === 'skyrise2') {
+      skyrisesPlaced++;
+    }
+    if (STATS[name]) {
+      tallestProp = Math.max(tallestProp, STATS[name].h || 0);
+    }
+    origAddProp(name, x, z, rotY);
+    // Expose metrics globally for smoke testing (update after each prop)
+    window.skyrisesPlaced = skyrisesPlaced;
+    window.tallestProp = tallestProp;
+    window.coreBlocks = coreBlocks;
+  };
+
   for (let i = 0; i < GRID_N; i++) for (let j = 0; j < GRID_N; j++) {
     const [x0, z0] = blockOrigin(i, j);
     const cx = x0 + BLOCK/2, cz = z0 + BLOCK/2;
     const type = blockPlan[i][j];
+    const isCore = coreBlocks.has(`${i},${j}`);
     const inBlock = (dx, dz) => [cx + dx, cz + dz];
 
     // Every block: streetlights on corners + mid-edges, sidewalk life.
     for (const [sx, sz] of [[-1,-1],[1,-1],[-1,1],[1,1]])
-      addProp('streetlight', cx + sx*(BLOCK/2 - 8), cz + sz*(BLOCK/2 - 8),
+      wrappedAddProp('streetlight', cx + sx*(BLOCK/2 - 8), cz + sz*(BLOCK/2 - 8),
         Math.atan2(-sz, -sx));
-    addProp('streetlight', cx, cz - (BLOCK/2 - 8), Math.PI/2);
-    addProp('streetlight', cx, cz + (BLOCK/2 - 8), -Math.PI/2);
-    addProp('trashcan', cx + rand(-90, 90), cz - (BLOCK/2 - 8));
-    addProp('trashcan', cx + (BLOCK/2 - 8), cz + rand(-90, 90));
-    addProp('trashcan', cx - (BLOCK/2 - 8), cz + rand(-90, 90));
-    addProp('mailbox', cx + rand(-90, 90), cz + (BLOCK/2 - 8));
+    wrappedAddProp('streetlight', cx, cz - (BLOCK/2 - 8), Math.PI/2);
+    wrappedAddProp('streetlight', cx, cz + (BLOCK/2 - 8), -Math.PI/2);
+    wrappedAddProp('trashcan', cx + rand(-90, 90), cz - (BLOCK/2 - 8));
+    wrappedAddProp('trashcan', cx + (BLOCK/2 - 8), cz + rand(-90, 90));
+    wrappedAddProp('trashcan', cx - (BLOCK/2 - 8), cz + rand(-90, 90));
+    wrappedAddProp('mailbox', cx + rand(-90, 90), cz + (BLOCK/2 - 8));
     for (const t of [-1, 1]) {                       // sidewalk trees
-      addProp('tree', cx + t*BLOCK/4, cz - (BLOCK/2 - 8));
-      addProp('tree', cx + t*BLOCK/4, cz + (BLOCK/2 - 8));
+      wrappedAddProp('tree', cx + t*BLOCK/4, cz - (BLOCK/2 - 8));
+      wrappedAddProp('tree', cx + t*BLOCK/4, cz + (BLOCK/2 - 8));
     }
     for (let k = 0; k < 8; k++) {
       const edge = Math.random() < 0.5 ? -1 : 1;
       if (Math.random() < 0.5)
-        addProp('person', cx + rand(-100, 100), cz + edge*(BLOCK/2 - 8));
+        wrappedAddProp('person', cx + rand(-100, 100), cz + edge*(BLOCK/2 - 8));
       else
-        addProp('person', cx + edge*(BLOCK/2 - 8), cz + rand(-100, 100));
+        wrappedAddProp('person', cx + edge*(BLOCK/2 - 8), cz + rand(-100, 100));
     }
     for (let k = 0; k < 2; k++) {
       const edge = Math.random() < 0.5 ? -1 : 1;
-      addProp('dog', cx + rand(-95, 95), cz + edge*(BLOCK/2 - 8));
+      wrappedAddProp('dog', cx + rand(-95, 95), cz + edge*(BLOCK/2 - 8));
     }
 
     if (type === 'downtown') {
-      addProp('tower', cx, cz, 0);
-      addProp('apartment', ...inBlock(-80, 80));
-      addProp('shop', ...inBlock(-80, -80));
-      addProp('shop', ...inBlock(80, -80), Math.PI/2);
-      addProp('shop', ...inBlock(80, 80), Math.PI);
-      for (let k = 0; k < 15; k++)
-        addProp('person', ...inBlock(rand(-40, 100),
-          (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
-      addProp('hydrant', ...inBlock(-100, 0));
-      addProp('hydrant', ...inBlock(100, 30));
-      addProp('bench', ...inBlock(-30, 40), Math.PI);
-      addProp('bench', ...inBlock(30, 40), Math.PI);
-      addProp('bench', ...inBlock(-30, -40), 0);
-      addProp('bench', ...inBlock(30, -40), 0);
-      addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('dog', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      for (let k = 0; k < 3; k++)
-        addProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      if (isCore) {
+        // Core district: 2-3 skyrises with spaced positioning
+        const skyCount = Math.random() < 0.6 ? 3 : 2;
+        const positions = [
+          [-60, -60], [60, -60], [-60, 60], [60, 60]
+        ];
+        const chosen = [];
+        for (let k = 0; k < skyCount && k < positions.length; k++) {
+          chosen.push(positions[k]);
+        }
+        for (const [dx, dz] of chosen) {
+          const skyType = Math.random() < 0.5 ? 'skyrise' : 'skyrise2';
+          wrappedAddProp(skyType, cx + dx, cz + dz, 0);
+        }
+        // Reduce small props in core for better sightlines
+        wrappedAddProp('apartment', ...inBlock(-80, 80));
+        for (let k = 0; k < 8; k++)
+          wrappedAddProp('person', ...inBlock(rand(-60, 60),
+            (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
+        wrappedAddProp('hydrant', ...inBlock(-100, 0));
+        wrappedAddProp('bench', ...inBlock(-30, 40), Math.PI);
+        wrappedAddProp('bench', ...inBlock(30, -40), 0);
+      } else {
+        // Non-core downtown: standard tower + 30% chance of skyrise
+        wrappedAddProp('tower', cx, cz, 0);
+        if (Math.random() < 0.3) {
+          const skyType = Math.random() < 0.5 ? 'skyrise' : 'skyrise2';
+          wrappedAddProp(skyType, cx + rand(-70, 70), cz + rand(-70, 70), 0);
+        }
+        wrappedAddProp('apartment', ...inBlock(-80, 80));
+        wrappedAddProp('shop', ...inBlock(-80, -80));
+        wrappedAddProp('shop', ...inBlock(80, -80), Math.PI/2);
+        wrappedAddProp('shop', ...inBlock(80, 80), Math.PI);
+        for (let k = 0; k < 12; k++)
+          wrappedAddProp('person', ...inBlock(rand(-40, 100),
+            (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
+        wrappedAddProp('hydrant', ...inBlock(-100, 0));
+        wrappedAddProp('hydrant', ...inBlock(100, 30));
+        wrappedAddProp('bench', ...inBlock(-30, 40), Math.PI);
+        wrappedAddProp('bench', ...inBlock(30, 40), Math.PI);
+        wrappedAddProp('bench', ...inBlock(-30, -40), 0);
+        wrappedAddProp('bench', ...inBlock(30, -40), 0);
+        wrappedAddProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
+        wrappedAddProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
+        wrappedAddProp('dog', ...inBlock(rand(-90, 90), rand(-90, 90)));
+        for (let k = 0; k < 3; k++)
+          wrappedAddProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
+        wrappedAddProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
+        wrappedAddProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      }
     } else if (type === 'residential') {
       // Six buildings in two street-facing rows with fenced front yards;
       // some blocks swap the middle lots for an apartment and a corner shop.
       for (const [hx, hz] of [[-66,-58],[66,-58],[-66,58],[66,58]])
-        addProp('house', cx + hx + rand(-4, 4), cz + hz + rand(-4, 4),
+        wrappedAddProp('house', cx + hx + rand(-4, 4), cz + hz + rand(-4, 4),
           hz < 0 ? Math.PI : 0);
       if (Math.random() < 0.4) {
-        addProp('apartment', cx, cz - 58, Math.PI);
-        addProp('shop', cx, cz + 58, 0);
+        wrappedAddProp('apartment', cx, cz - 58, Math.PI);
+        wrappedAddProp('shop', cx, cz + 58, 0);
       } else {
-        addProp('house', cx + rand(-4, 4), cz - 58, Math.PI);
-        addProp('house', cx + rand(-4, 4), cz + 58, 0);
+        wrappedAddProp('house', cx + rand(-4, 4), cz - 58, Math.PI);
+        wrappedAddProp('house', cx + rand(-4, 4), cz + 58, 0);
       }
-      for (const fx of [-84, -58, -30, 30, 58, 84]) addProp('fence', cx + fx, cz, 0);
-      addProp('tree', ...inBlock(-96, 0));
-      addProp('tree', ...inBlock(96, 0));
-      addProp('tree', ...inBlock(-33, 0));
-      addProp('tree', ...inBlock(33, 0));
+      for (const fx of [-84, -58, -30, 30, 58, 84]) wrappedAddProp('fence', cx + fx, cz, 0);
+      wrappedAddProp('tree', ...inBlock(-96, 0));
+      wrappedAddProp('tree', ...inBlock(96, 0));
+      wrappedAddProp('tree', ...inBlock(-33, 0));
+      wrappedAddProp('tree', ...inBlock(33, 0));
       for (let k = 0; k < 10; k++)
-        addProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));
-      addProp('hydrant', ...inBlock(rand(-90, 90), 100));
-      addProp('mailbox', ...inBlock(rand(-90, 90), -100));
-      addProp('mailbox', ...inBlock(rand(-90, 90), 100));
+        wrappedAddProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));
+      wrappedAddProp('hydrant', ...inBlock(rand(-90, 90), 100));
+      wrappedAddProp('mailbox', ...inBlock(rand(-90, 90), -100));
+      wrappedAddProp('mailbox', ...inBlock(rand(-90, 90), 100));
       for (let k = 0; k < 9; k++)
-        addProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
-      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
-      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+        wrappedAddProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      wrappedAddProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      wrappedAddProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
     } else {  // park — the spawn block stays clear for the player
       const isSpawn = (i === spawnI && j === spawnJ);
-      if (!isSpawn) addProp('fountain', cx, cz, 0);
+      if (!isSpawn) wrappedAddProp('fountain', cx, cz, 0);
       for (const f of [-55, 55]) {
-        addProp('fence', cx + f, cz - 88, 0);
-        addProp('fence', cx + f, cz + 88, 0);
-        addProp('fence', cx - 88, cz + f, Math.PI/2);
-        addProp('fence', cx + 88, cz + f, Math.PI/2);
+        wrappedAddProp('fence', cx + f, cz - 88, 0);
+        wrappedAddProp('fence', cx + f, cz + 88, 0);
+        wrappedAddProp('fence', cx - 88, cz + f, Math.PI/2);
+        wrappedAddProp('fence', cx + 88, cz + f, Math.PI/2);
       }
       for (let k = 0; k < 15; k++) {
         const dx = rand(-78, 78), dz = rand(-78, 78);
         if (isSpawn && Math.hypot(dx, dz) < 55) continue;
         if (!isSpawn && Math.hypot(dx, dz) < 26) continue;
-        addProp('tree', ...inBlock(dx, dz));
+        wrappedAddProp('tree', ...inBlock(dx, dz));
       }
       for (let k = 0; k < 12; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
-        addProp('bush', ...inBlock(dx, dz));
+        wrappedAddProp('bush', ...inBlock(dx, dz));
       }
       for (let k = 0; k < 3; k++) {
         const dx = rand(-85, 85), dz = rand(-85, 85);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
-        addProp('dog', ...inBlock(dx, dz));
+        wrappedAddProp('dog', ...inBlock(dx, dz));
       }
-      addProp('bench', ...inBlock(rand(-60, 60), -75), 0);
-      addProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
-      addProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
-      addProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
+      wrappedAddProp('bench', ...inBlock(rand(-60, 60), -75), 0);
+      wrappedAddProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
+      wrappedAddProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
+      wrappedAddProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
       for (let k = 0; k < 14; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
-        addProp('person', ...inBlock(dx, dz));
+        wrappedAddProp('person', ...inBlock(dx, dz));
       }
     }
 
     // Cars parallel-parked along this block's curbs.
     for (let k = 0; k < 5; k++) {
       const side = (Math.random()*4)|0, off = BLOCK/2 + 9, along = rand(-95, 95);
-      if (side === 0)      addProp('car', cx + along, cz - off, 0);
-      else if (side === 1) addProp('car', cx + along, cz + off, 0);
-      else if (side === 2) addProp('car', cx - off, cz + along, Math.PI/2);
-      else                 addProp('car', cx + off, cz + along, Math.PI/2);
+      if (side === 0)      wrappedAddProp('car', cx + along, cz - off, 0);
+      else if (side === 1) wrappedAddProp('car', cx + along, cz + off, 0);
+      else if (side === 2) wrappedAddProp('car', cx - off, cz + along, Math.PI/2);
+      else                 wrappedAddProp('car', cx + off, cz + along, Math.PI/2);
     }
   }
 
@@ -270,12 +445,12 @@ function populate(addProp) {
       const along = rand(-WORLD + 60, WORLD - 60);
       const lane = (Math.random() < 0.5 ? -1 : 1) * 12;
       const bus = Math.random() < 0.15;
-      if (Math.random() < 0.5) addProp(bus ? 'bus' : 'car', along, rc + lane, 0);
-      else                     addProp(bus ? 'bus' : 'car', rc + lane, along, Math.PI/2);
+      if (Math.random() < 0.5) wrappedAddProp(bus ? 'bus' : 'car', along, rc + lane, 0);
+      else                     wrappedAddProp(bus ? 'bus' : 'car', rc + lane, along, Math.PI/2);
     }
     if (k < GRID_N) {
-      addProp('cone', rand(-WORLD+60, WORLD-60), rc, 0);
-      addProp('cone', rc, rand(-WORLD+60, WORLD-60), 0);
+      wrappedAddProp('cone', rand(-WORLD+60, WORLD-60), rc, 0);
+      wrappedAddProp('cone', rc, rand(-WORLD+60, WORLD-60), 0);
     }
   }
 }
@@ -294,6 +469,10 @@ registerLevel({
   generate,
   createGroundTexture: cityGroundTexture,
   populate,
+  // Expose metrics for smoke testing
+  get debugCore() { return coreBlocks.size > 0; },
+  get debugSkyrises() { return skyrisesPlaced; },
+  get debugTallest() { return tallestProp; },
 });
 
 })();
