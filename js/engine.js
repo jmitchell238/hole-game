@@ -15,29 +15,17 @@ renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
 
-// The frame fills the screen and re-fits on rotation.
+// The frame is pinned to the viewport by CSS (inset:0) and layoutFrame just measures it.
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };
 function layoutFrame() {
-  let W = innerWidth, H = innerHeight;
-  let offsetX = 0, offsetY = 0;
-  // Use visualViewport if available (e.g., on iOS with zoom/URL-bar toggling)
-  if (window.visualViewport) {
-    W = visualViewport.width;
-    H = visualViewport.height;
-    offsetX = visualViewport.offsetLeft;
-    offsetY = visualViewport.offsetTop;
-  }
-  const landscape = W >= H;
-  FRAME.w = Math.round(W);
-  FRAME.h = Math.round(H);
-  FRAME.x = Math.round(offsetX);
-  FRAME.y = Math.round(offsetY);
-  frameEl.style.width = FRAME.w + 'px';
-  frameEl.style.height = FRAME.h + 'px';
-  frameEl.style.left = FRAME.x + 'px';
-  frameEl.style.top = FRAME.y + 'px';
+  const r = frameEl.getBoundingClientRect();
+  FRAME.w = Math.round(r.width);
+  FRAME.h = Math.round(r.height);
+  FRAME.x = Math.round(r.left);
+  FRAME.y = Math.round(r.top);
   renderer.setSize(FRAME.w, FRAME.h);
   camera.aspect = FRAME.w / FRAME.h;
+  const landscape = FRAME.w >= FRAME.h;
   camera.fov = landscape ? 55 : 70;      // wider lens when held upright
   camera.updateProjectionMatrix();
 }

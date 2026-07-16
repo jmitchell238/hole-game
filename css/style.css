@@ -3,7 +3,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000;
   touch-action: none; overscroll-behavior: none;
   user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent; }
-#frame { position: fixed; background: #0d1117; overflow: hidden; }
+#frame { position: fixed; inset: 0; background: #0d1117; overflow: hidden; }
 canvas { display: block; cursor: grab; touch-action: none; }
 canvas.dragging { cursor: grabbing; }
 #tags { position: absolute; inset: 0; pointer-events: none; }

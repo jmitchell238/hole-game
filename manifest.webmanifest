@@ -4,8 +4,7 @@
   "description": "Steer your hole and swallow the whole map before your rivals do.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "orientation": "landscape",
+  "display": "standalone",
   "background_color": "#0d1117",
   "theme_color": "#0d1117",
   "icons": [
