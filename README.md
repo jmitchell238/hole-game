@@ -1,4 +1,4 @@
-# Hole Royale
+# VoidRush
 
 A hole.io-style browser game — steer your hole around the map and swallow
 everything that fits, growing as you go. Biggest hole when the timer hits
