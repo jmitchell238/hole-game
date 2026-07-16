@@ -15,8 +15,7 @@ renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
 
-// The game lives in a fixed 16:9 frame (9:16 when the device is held
-// upright), centered and letterboxed — it re-fits itself on rotation.
+// The frame fills the screen and re-fits on rotation.
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };
 function layoutFrame() {
   let W = innerWidth, H = innerHeight;
@@ -29,12 +28,10 @@ function layoutFrame() {
     offsetY = visualViewport.offsetTop;
   }
   const landscape = W >= H;
-  const ratio = landscape ? 16/9 : 9/16;
-  const fw = Math.min(W, H * ratio);
-  FRAME.w = Math.round(fw);
-  FRAME.h = Math.round(fw / ratio);
-  FRAME.x = Math.round((W - FRAME.w) / 2) + offsetX;
-  FRAME.y = Math.round((H - FRAME.h) / 2) + offsetY;
+  FRAME.w = Math.round(W);
+  FRAME.h = Math.round(H);
+  FRAME.x = Math.round(offsetX);
+  FRAME.y = Math.round(offsetY);
   frameEl.style.width = FRAME.w + 'px';
   frameEl.style.height = FRAME.h + 'px';
   frameEl.style.left = FRAME.x + 'px';
