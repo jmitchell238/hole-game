@@ -28,7 +28,8 @@ const SHADOW_CASTERS = new Set(['tree','car','bus','shop','house','apartment','t
 const CAR_COLORS = [0x4f8ae8,0xe85555,0xf0c548,0x9b5ad6,0x48c9a9,0xf2f4f6,0x3d4854];
 const SHIRT_COLORS = [0xe85555,0x4f8ae8,0x4fc46a,0xf0a848,0x9b5ad6,0xf2f4f6];
 const DOG_COLORS = [0x8a6642,0xf2f4f6,0x3a3a3a,0xc9a578];
-const HOUSE_COLORS = ['#e8dcc0','#cfe0ee','#efd8d8','#dfe8cf','#e8e0cf','#d8cfe8'];
+const HOUSE_COLORS = ['#f2ead6','#ece4d0','#f0e8d8','#e8dcc8','#f2e8d0','#e8dcc0'];
+const ROOF_COLORS = [0xc23a24, 0xd6721f, 0x3568b8, 0x3f9433, 0x7a2f9e];
 
 // Levels call this to add their own themed props before/inside populate().
 function registerProp(name, stats, builder, castsShadow) {
@@ -47,8 +48,8 @@ function houseWall(base, withDoor) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
     }
     const win = (x, y) => {
-      g.fillStyle = '#fff'; g.fillRect(x-4, y-4, 56, 66);
-      g.fillStyle = '#5a7d9e'; g.fillRect(x, y, 48, 58);
+      g.fillStyle = '#fff'; g.fillRect(x-6, y-6, 60, 70);    // white 6px frame
+      g.fillStyle = '#4f8ae8'; g.fillRect(x, y, 48, 58);     // brighter blue glass
       g.fillStyle = '#fff'; g.fillRect(x+22, y, 4, 58); g.fillRect(x, y+26, 48, 5);
     };
     win(38, 34); win(170, 34);                          // upper floor
@@ -65,11 +66,25 @@ function houseWall(base, withDoor) {
 // Skyscraper glass: mullioned window grid with a few lit offices.
 function towerWall() {
   return canvasTex(256, 512, g => {
-    g.fillStyle = '#5d6a75'; g.fillRect(0, 0, 256, 512);
+    g.fillStyle = '#3f8fd0'; g.fillRect(0, 0, 256, 512);  // blue glass base
+    // Cream mullions and window panes
     for (let y = 8; y < 500; y += 26) for (let x = 8; x < 248; x += 30) {
       const r = Math.random();
-      g.fillStyle = r < 0.12 ? '#ffe9a8' : r < 0.5 ? '#a7c8de' : '#8fb4cc';
+      g.fillStyle = r < 0.12 ? '#ffe9a8' : r < 0.5 ? '#6fb4e8' : '#4f96d0';
       g.fillRect(x, y, 24, 20);
+    }
+    // Cream mullions (~6px) separating panes
+    g.strokeStyle = '#ece4d0'; g.lineWidth = 6;
+    for (let y = 8; y < 500; y += 26) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
+    }
+    for (let x = 8; x < 248; x += 30) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 512); g.stroke();
+    }
+    // Solid cream horizontal bands every ~5 rows
+    g.fillStyle = '#ece4d0';
+    for (let y = 130; y < 512; y += 130) {
+      g.fillRect(0, y, 256, 8);
     }
   });
 }
@@ -94,12 +109,12 @@ function aptWall(base) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
     }
     for (let y = 18; y < 340; y += 52) for (let x = 20; x < 236; x += 44) {
-      g.fillStyle = '#f2f2f2'; g.fillRect(x-3, y-3, 34, 40);
-      g.fillStyle = Math.random() < 0.2 ? '#ffe9a8' : '#7a9cb8';
+      g.fillStyle = '#fff'; g.fillRect(x-3, y-3, 34, 40);      // white frame
+      g.fillStyle = Math.random() < 0.2 ? '#ffe9a8' : '#4f8ae8';  // brighter blue
       g.fillRect(x, y, 28, 34);
-      g.fillStyle = '#f2f2f2'; g.fillRect(x+12, y, 3, 34);
+      g.fillStyle = '#fff'; g.fillRect(x+12, y, 3, 34);
     }
-    g.fillStyle = '#f2f2f2'; g.fillRect(100, 330, 60, 54);
+    g.fillStyle = '#fff'; g.fillRect(100, 330, 60, 54);
     g.fillStyle = '#4a3a2a'; g.fillRect(106, 336, 48, 48);
   });
 }
@@ -125,6 +140,10 @@ const MAT = {
   tire:  new THREE.MeshLambertMaterial({ color: 0x2a2e33 }),
   stone: new THREE.MeshLambertMaterial({ color: 0x9aa2a8 }),
   mail:  new THREE.MeshLambertMaterial({ color: 0x3a6fd8 }),
+  cream: new THREE.MeshLambertMaterial({ color: 0xece4d0 }),
+  white: new THREE.MeshLambertMaterial({ color: 0xf2f4f6 }),
+  plinth: new THREE.MeshLambertMaterial({ color: 0x8a8a8a }),
+  roofRim: new THREE.MeshLambertMaterial({ color: 0x5a5a5a }),
 };
 // Pre-built wall texture variants (shared across buildings).
 const HOUSE_WALLS = HOUSE_COLORS.map(c => ({
@@ -138,7 +157,7 @@ const SHOP_WALLS = ['#d8896a','#7aa8c8','#8fbf8a','#c8a05a'].map(c => ({
   wall: new THREE.MeshLambertMaterial({ map: shopWall(c) }),
   plain: new THREE.MeshLambertMaterial({ color: c }),
 }));
-const APT_WALLS = ['#c08868','#a8927a','#b87a6a'].map(c =>
+const APT_WALLS = ['#f0e8d8','#ece4d0','#e8dcc8'].map(c =>
   new THREE.MeshLambertMaterial({ map: aptWall(c) }));
 const APT_TOP = new THREE.MeshLambertMaterial({ color: 0x8f7864 });
 
@@ -298,9 +317,28 @@ const BUILDERS = {
     const box = new THREE.Mesh(new THREE.BoxGeometry(34, 28, 34),
       [v.side, v.side, v.plain, v.plain, v.front, v.side]);
     box.position.y = 14; g.add(box);
-    const roof = part(new THREE.ConeGeometry(27, 17, 4), MAT.roof, 0, 36.5, 0);
-    roof.rotation.y = Math.PI/4; g.add(roof);
-    g.add(part(new THREE.BoxGeometry(4, 12, 4), MAT.stone, 9, 38, -8));
+
+    // Gray plinth base
+    g.add(part(new THREE.BoxGeometry(38, 2, 38), MAT.plinth, 0, 1, 0));
+
+    // Gable roof: triangular prism using CylinderGeometry with 3 sides
+    // Radius 23 gives triangle base ~40 (roof overhang), scaled for height ~14
+    const roofColor = pick(ROOF_COLORS);
+    const roofMat = new THREE.MeshLambertMaterial({ color: roofColor });
+    const creamMat = new THREE.MeshLambertMaterial({ color: 0xece4d0 });
+    const roof = new THREE.Mesh(
+      new THREE.CylinderGeometry(23, 23, 40, 3),
+      [roofMat, creamMat, creamMat]  // [side, topCap, bottomCap]
+    );
+    roof.rotation.x = Math.PI / 2;
+    roof.scale.y = 0.35;
+    roof.position.set(0, 34, 0);
+    g.add(roof);
+
+    // White/cream chimney with darker top rim
+    g.add(part(new THREE.BoxGeometry(4, 12, 4), MAT.white, 9, 36, -8));
+    g.add(part(new THREE.BoxGeometry(5, 1, 5), MAT.roofRim, 9, 42.5, -8));  // top rim
+
     return g;
   },
   apartment() {
@@ -316,11 +354,35 @@ const BUILDERS = {
   tower() {
     const g = new THREE.Group();
     const wall = pick(TOWER_WALLS);
-    const box = new THREE.Mesh(new THREE.BoxGeometry(52, 106, 52),
+
+    // Bottom tier: 52 width, ~58 height
+    const box1 = new THREE.Mesh(new THREE.BoxGeometry(52, 58, 52),
       [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
-    box.position.y = 53; g.add(box);
-    g.add(part(new THREE.BoxGeometry(55, 3, 55), MAT.dark, 0, 107.5, 0));
-    g.add(part(new THREE.BoxGeometry(10, 5, 8), MAT.metal, 8, 111, 6));
+    box1.position.y = 29; g.add(box1);
+
+    // Cream cornice slab at bottom tier top
+    g.add(part(new THREE.BoxGeometry(55, 2, 55), MAT.cream, 0, 60, 0));
+
+    // Middle tier: ~42 width, ~30 height
+    const box2 = new THREE.Mesh(new THREE.BoxGeometry(42, 30, 42),
+      [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
+    box2.position.y = 75; g.add(box2);
+
+    // Cream cornice slab at middle tier top
+    g.add(part(new THREE.BoxGeometry(45, 2, 45), MAT.cream, 0, 90, 0));
+
+    // Top tier: ~30 width, ~15 height
+    const box3 = new THREE.Mesh(new THREE.BoxGeometry(30, 15, 30),
+      [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
+    box3.position.y = 97.5; g.add(box3);
+
+    // Cream cornice slab at top tier top
+    g.add(part(new THREE.BoxGeometry(33, 2, 33), MAT.cream, 0, 105, 0));
+
+    // Small cap box + thin spire
+    g.add(part(new THREE.BoxGeometry(8, 2, 8), MAT.cream, 0, 108, 0));
+    g.add(part(new THREE.CylinderGeometry(0.8, 0.8, 18, 8), MAT.cream, 0, 117, 0));
+
     return g;
   },
 };
