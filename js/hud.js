@@ -64,7 +64,10 @@ TAB_BTNS.settings.onclick = () => showTab('settings');
 
 // The middle tab always names the level you're about to play.
 function updatePlayTab() {
-  TAB_BTNS.play.textContent = '▶ ' + (SAVE.debug && selectedLevelId ? LEVELS[selectedLevelId].name : 'Play');
+  const img = TAB_BTNS.play.querySelector('img');
+  TAB_BTNS.play.textContent = '';
+  if (img) TAB_BTNS.play.appendChild(img);
+  TAB_BTNS.play.append(SAVE.debug && selectedLevelId ? LEVELS[selectedLevelId].name : 'Play');
 }
 
 function updateGold() {

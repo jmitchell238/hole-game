@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'voidrush-v22';
+const CACHE = 'voidrush-v23';
 const ASSETS = [
   './',
   './index.html',
@@ -38,6 +38,10 @@ const ASSETS = [
   './art/fixed/dog_one.png',
   './art/fixed/dog_blue_heeler_real.png',
   './art/fixed/whale_blue.png',
+  './art/menu-bg.jpg',
+  './art/icon-store.png',
+  './art/icon-play.png',
+  './art/icon-settings.png',
 ];
 
 self.addEventListener('install', e => {
