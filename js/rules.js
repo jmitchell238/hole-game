@@ -101,25 +101,36 @@ function update(dt) {
   }
   objects = objects.filter(o => !o.dead);
 
-  // Holes eat smaller holes — eliminated for good.
-  // Grace period: no hole-vs-hole eating during first 15 seconds of match
-  const elapsedTime = (matchTime || MATCH_TIME) - timeLeft;
-  const inGrace = elapsedTime < PVP_GRACE;
-  for (const a of holes) {
-    for (const b of holes) {
-      if (a === b || b.eaten) continue;
-      if (!inGrace && a.r >= 1.75 * b.r && dist(a.x, a.z, b.x, b.z) < a.r) {
-        grow(a, areaOf(b.r)*GROW);
-        b.eaten = true;
+  // Solo mode: skip hole-vs-hole eating, check for devour target
+  if (!battleMode) {
+    // Check if player reached the devour target
+    const devourPct = (1 - objects.length/levelTotal)*100;
+    if (devourPct >= targetPct) {
+      soloWon = true;
+      endMatch();
+      return;
+    }
+  } else {
+    // Battle mode: Holes eat smaller holes — eliminated for good.
+    // Grace period: no hole-vs-hole eating during first 15 seconds of match
+    const elapsedTime = (matchTime || MATCH_TIME) - timeLeft;
+    const inGrace = elapsedTime < PVP_GRACE;
+    for (const a of holes) {
+      for (const b of holes) {
+        if (a === b || b.eaten) continue;
+        if (!inGrace && a.r >= 1.75 * b.r && dist(a.x, a.z, b.x, b.z) < a.r) {
+          grow(a, areaOf(b.r)*GROW);
+          b.eaten = true;
+        }
       }
     }
-  }
-  const eaten = holes.filter(h => h.eaten);
-  if (eaten.length) {
-    for (const h of eaten) removeHole(h);
-    holes = holes.filter(h => !h.eaten);
-    if (player.eaten) { endMatch(); return; }
-  }
+    const eaten = holes.filter(h => h.eaten);
+    if (eaten.length) {
+      for (const h of eaten) removeHole(h);
+      holes = holes.filter(h => !h.eaten);
+      if (player.eaten) { endMatch(); return; }
+    }
 
-  if (objects.length === 0 || holes.length === 1) endMatch();
+    if (objects.length === 0 || holes.length === 1) endMatch();
+  }
 }

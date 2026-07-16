@@ -33,14 +33,38 @@ function init(level) {
   levelTotal = objects.length;
   player = makeHole(level.playerSpawn[0], level.playerSpawn[1], 'You', true);
   holes.push(player);
-  const names = BOT_NAMES.slice().sort(() => Math.random()-0.5);
-  const spawns = level.botSpawns;
-  for (let i = 0; i < spawns.length && i < names.length; i++)
-    holes.push(makeHole(spawns[i][0], spawns[i][1], names[i], false));
+
+  // Determine if this is a battle level
+  battleMode = isBattleLevel(SAVE.campaignLevel);
+  if (battleMode) {
+    // Battle level: spawn exactly 5 bots
+    const names = BOT_NAMES.slice().sort(() => Math.random()-0.5);
+    const spawns = level.botSpawns;
+    for (let i = 0; i < 5 && i < spawns.length && i < names.length; i++)
+      holes.push(makeHole(spawns[i][0], spawns[i][1], names[i], false));
+  }
+  // Solo level: no bots (holes = [player] only)
+
   refreshGround();
   camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
-  timeLeft = level.matchTime || MATCH_TIME;
-  matchTime = level.matchTime || MATCH_TIME;   // set global for grace period calculation
+
+  // Timer: solo 240s, battle always 150s (fixed pacing, no level override)
+  const isSolo = !battleMode;
+  timeLeft = isSolo ? 240 : MATCH_TIME;
+  matchTime = isSolo ? 240 : MATCH_TIME;   // set global for grace period calculation
+
+  // Solo objective: target percentage increases with campaign level
+  targetPct = Math.min(50 + 3*(SAVE.campaignLevel-1), 90);
+  soloWon = false;
+
+  // Hide leaderboard during solo, show during battles
+  const board = document.getElementById('board');
+  if (isSolo) {
+    board.classList.add('hidden');
+  } else {
+    board.classList.remove('hidden');
+  }
+
   lastLevel = 1;
 }
 
@@ -155,11 +179,13 @@ function start() {
   init(LEVELS[forced ? selectedLevelId : pick(Object.keys(LEVELS))]);
   dragging = false;
   overlay.classList.add('hidden'); finalBoard.classList.add('hidden');
+  document.getElementById('matchResult').classList.add('hidden');
   pauseBtn.classList.remove('hidden');
   joyShow(SAVE.controls === 'touch');
   running = true; paused = false;
   last = performance.now();
   requestAnimationFrame(loop);
+  updateLevelInfo();  // Show level info when starting
 }
 
 function endMatch() {
@@ -167,41 +193,94 @@ function endMatch() {
   running = false;
   joyShow(false);
   const alive = holes.slice();
-  const ranked = [...alive].sort((a,b)=>b.r-a.r);
-  const rank = player.eaten ? 0 : ranked.indexOf(player)+1;
 
-  // Match reward: gold for size, bonus for the podium.
-  const reward = player.eaten
-    ? Math.max(3, Math.round(player.r/4))
-    : Math.max(5, Math.round(player.r/2)) +
-      (rank === 1 ? 25 : rank === 2 ? 15 : rank === 3 ? 10 : 0);
-  SAVE.gold += reward;
-  persistSave();
-  updateGold();
+  // Solo level handling
+  if (!battleMode) {
+    let reward, resultText, btnText;
+    if (soloWon) {
+      // Solo win
+      const levelJustBeaten = SAVE.campaignLevel;
+      SAVE.campaignLevel++;
+      reward = Math.max(5, Math.round(player.r/2)) + 20;
+      resultText = `Level ${levelJustBeaten} cleared! 🎉`;
+      btnText = 'Next level';
+      persistSave();
+    } else {
+      // Solo loss (time ran out)
+      const devourPct = Math.round((1 - objects.length/levelTotal)*100);
+      reward = Math.max(3, Math.round(player.r/4));
+      resultText = `Time's up — devoured ${devourPct}% (goal ${Math.round(targetPct)}%)`;
+      btnText = 'Retry level';
+    }
+    SAVE.gold += reward;
+    persistSave();
+    updateGold();
 
-  // If an update arrived during the match, reload now that the reward is saved
-  if (window.__pendingReload) {
-    window.__reloaded = true;
-    location.reload();
-    return;
+    // If an update arrived during the match, reload now that the reward is saved
+    if (window.__pendingReload) {
+      window.__reloaded = true;
+      location.reload();
+      return;
+    }
+
+    // Write result to #matchResult, NOT to #logo h1
+    const matchResultEl = document.getElementById('matchResult');
+    matchResultEl.textContent = resultText;
+    matchResultEl.classList.remove('hidden');
+
+    document.getElementById('playText').textContent = `You earned ${reward} 🪙.`;
+    finalBoard.classList.add('hidden');  // No leaderboard for solo
+    document.getElementById('startBtn').textContent = btnText;
+    pauseBtn.classList.add('hidden');
+    showTab('play');
+    overlay.classList.remove('hidden');
+  } else {
+    // Battle mode handling
+    const ranked = [...alive].sort((a,b)=>b.r-a.r);
+    const rank = player.eaten ? 0 : ranked.indexOf(player)+1;
+
+    // Match reward: gold for size, bonus for the podium.
+    const reward = player.eaten
+      ? Math.max(3, Math.round(player.r/4))
+      : Math.max(5, Math.round(player.r/2)) +
+        (rank === 1 ? 25 : rank === 2 ? 15 : rank === 3 ? 10 : 0);
+
+    // Battle level always advances, even if swallowed
+    SAVE.campaignLevel++;
+    SAVE.gold += reward;
+    persistSave();
+    updateGold();
+
+    // If an update arrived during the match, reload now that the reward is saved
+    if (window.__pendingReload) {
+      window.__reloaded = true;
+      location.reload();
+      return;
+    }
+
+    // Write result to #matchResult, NOT to #logo h1
+    const matchResultEl = document.getElementById('matchResult');
+    matchResultEl.textContent =
+      player.eaten ? 'Swallowed! 💀'
+      : rank === 1 && alive.length === 1 ? 'You ate everyone! 🏆'
+      : rank === 1 ? 'You win! 🏆'
+      : `You placed #${rank}`;
+    matchResultEl.classList.remove('hidden');
+
+    document.getElementById('playText').textContent = (player.eaten
+      ? 'A bigger hole got you. Watch the leaderboard and keep your distance.'
+      : `Final size ${Math.round(player.r)} · ${currentLevel.progressLabel} ` +
+        Math.round((1 - objects.length/levelTotal)*100) + '%.')
+      + ` You earned ${reward} 🪙.`;
+    finalBoard.innerHTML = boardHtml(alive);
+    finalBoard.classList.remove('hidden');
+    document.getElementById('startBtn').textContent = 'Next level';
+    pauseBtn.classList.add('hidden');
+    showTab('play');
+    overlay.classList.remove('hidden');
   }
-
-  document.getElementById('playPage').querySelector('h1').textContent =
-    player.eaten ? 'Swallowed! 💀'
-    : rank === 1 && alive.length === 1 ? 'You ate everyone! 🏆'
-    : rank === 1 ? 'You win! 🏆'
-    : `You placed #${rank}`;
-  document.getElementById('playText').textContent = (player.eaten
-    ? 'A bigger hole got you. Watch the leaderboard and keep your distance.'
-    : `Final size ${Math.round(player.r)} · ${currentLevel.progressLabel} ` +
-      Math.round((1 - objects.length/levelTotal)*100) + '%.')
-    + ` You earned ${reward} 🪙.`;
-  finalBoard.innerHTML = boardHtml(alive);
-  finalBoard.classList.remove('hidden');
-  document.getElementById('startBtn').textContent = 'Play again';
-  pauseBtn.classList.add('hidden');
-  showTab('play');
-  overlay.classList.remove('hidden');
+  // Update level info now that campaignLevel may have advanced
+  updateLevelInfo();
 }
 
 function loop(now) {
@@ -216,6 +295,7 @@ function loop(now) {
 buildLevelSelect();
 updatePlayTab();
 updateGold();
+updateLevelInfo();
 
 // Debug unlock via URL parameter
 if (location.search.includes('debug=1')) {

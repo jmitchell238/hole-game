@@ -131,7 +131,10 @@ function removeHole(h) {
 }
 
 function canEat(hole, r) { return hole.r >= r * EAT_RATIO; }
-function grow(h, addArea) { h.r = Math.sqrt((areaOf(h.r)+addArea)/Math.PI); }
+function grow(h, addArea) {
+  if (battleMode) addArea *= Math.max(0.25, 1 - h.r/240);
+  h.r = Math.sqrt((areaOf(h.r)+addArea)/Math.PI);
+}
 
 // Push the pit/cap/ring meshes to the hole's current position and size.
 function syncHole(h) {

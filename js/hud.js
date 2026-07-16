@@ -24,7 +24,7 @@ function updateHud() {
   // Level-up flash
   if (lv > lastLevel) {
     const levelUpEl = document.getElementById('levelUp');
-    levelUpEl.textContent = lv === 10 ? 'MAX SIZE!' : 'SIZE ' + lv + '!';
+    levelUpEl.textContent = 'SIZE ' + lv + '!';
     levelUpEl.classList.remove('hidden');
     // Restart animation by removing and re-adding the element or toggling the class
     void levelUpEl.offsetWidth; // trigger reflow
@@ -34,10 +34,16 @@ function updateHud() {
     lastLevel = lv;
   }
 
-  document.getElementById('progressInfo').textContent =
-    currentLevel.progressLabel + ': ' +
-    Math.round((1 - objects.length/levelTotal)*100) + '%';
-  document.getElementById('rows').innerHTML = boardHtml(holes);
+  // Solo mode: show devour progress; Battle mode: show normal progress
+  if (!battleMode) {
+    const devourPct = Math.round((1 - objects.length/levelTotal)*100);
+    document.getElementById('progressInfo').textContent = `Devoured ${devourPct}% · goal ${Math.round(targetPct)}%`;
+  } else {
+    document.getElementById('progressInfo').textContent =
+      currentLevel.progressLabel + ': ' +
+      Math.round((1 - objects.length/levelTotal)*100) + '%';
+    document.getElementById('rows').innerHTML = boardHtml(holes);
+  }
 }
 
 // ---- Tabs ------------------------------------------------------------------------
@@ -68,6 +74,19 @@ function updatePlayTab() {
   TAB_BTNS.play.textContent = '';
   if (img) TAB_BTNS.play.appendChild(img);
   TAB_BTNS.play.append(SAVE.debug && selectedLevelId ? LEVELS[selectedLevelId].name : 'Play');
+}
+
+// Show current campaign level and whether it's a battle
+function updateLevelInfo() {
+  const levelInfoEl = document.getElementById('levelInfo');
+  if (!levelInfoEl) return;
+  if (isBattleLevel(SAVE.campaignLevel)) {
+    levelInfoEl.textContent = `Level ${SAVE.campaignLevel} · ⚔️ Bot Battle!`;
+    levelInfoEl.style.color = '#58d68d';
+  } else {
+    levelInfoEl.textContent = `Level ${SAVE.campaignLevel}`;
+    levelInfoEl.style.color = '';
+  }
 }
 
 function updateGold() {

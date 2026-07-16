@@ -12,6 +12,7 @@ let SAVE = {
   shadows: true,
   controls: 'touch',         // 'touch' or 'keyboard'
   debug: false,
+  campaignLevel: 1,          // current campaign level (1+)
 };
 try {
   const stored = JSON.parse(localStorage.getItem(SAVE_KEY));
