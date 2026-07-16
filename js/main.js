@@ -66,8 +66,7 @@ function spawnPopup(h, pts) {
 // ---- Camera + render -----------------------------------------------------------
 let camPos = new THREE.Vector3(0, 200, 160);
 function render() {
-  const rz = player.r <= 120 ? player.r : 120 + (player.r - 120) * 0.45;
-  const height = 28 + rz*1.35, depth = 24 + rz*1.15;
+  const height = 22.5 + player.r * 7.3, depth = 18.5 + player.r * 6.2;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
   camPos.lerp(want, 0.06);
   camera.position.copy(camPos);
