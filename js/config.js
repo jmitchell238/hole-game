@@ -1,6 +1,14 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
-const GAME_VERSION = 'v32';   // keep in sync with CACHE in sw.js
+// ---- Version (MAJOR.MINOR.PATCH) --------------------------------------------
+// Shown in the UI as "VoidRush vMAJOR.MINOR.PPP" (patch zero-padded to 3 digits).
+//   major — breaking / generation changes
+//   minor — features (levels, systems, big content)
+//   patch — bugfixes, perf, polish
+// Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
+// Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
+const GAME_VERSION = '2.32.001';
+const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;

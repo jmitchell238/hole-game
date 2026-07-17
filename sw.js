@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
-// offline once installed. Bump the version string whenever files change.
-const CACHE = 'voidrush-v32';
+// offline once installed. Bump with GAME_VERSION in js/config.js (MAJOR.MINOR.PATCH).
+const CACHE = 'voidrush-2.32.001';
 const ASSETS = [
   './',
   './index.html',
