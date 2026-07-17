@@ -84,14 +84,11 @@ function spawnPopup(h, pts) {
 let camPos = new THREE.Vector3(0, 200, 160);
 
 function applyGfxSettings() {
-  renderer.shadowMap.enabled = !!SAVE.shadows;
-  sun.castShadow = !!SAVE.shadows;
-  if (ground) ground.receiveShadow = !!SAVE.shadows;
-  if (!SAVE.shadows) {
-    for (const o of objects) {
-      o.mesh.traverse(m => { if (m.isMesh) m.castShadow = false; });
-    }
-  }
+  // Low-end: never enable shadow maps (huge cost). Desktop can toggle.
+  const want = !GFX.lowEnd && !!SAVE.shadows;
+  renderer.shadowMap.enabled = want;
+  sun.castShadow = want;
+  if (ground) ground.receiveShadow = want;
 }
 
 let _hudTick = 0;
@@ -104,18 +101,17 @@ function render() {
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
-  // Fog tracks camera distance (never clip the hole — see v2.35.002)
-  const camToHole = Math.hypot(height, depth);
-  const fogFar = Math.max(
-    currentLevel.fog[1],
-    camToHole * 2.2,
-    height * 2.4,
-    player.r * 8 + 400);
-  scene.fog.far = fogFar;
-  scene.fog.near = Math.min(fogFar * 0.35, camToHole * 0.55);
-  if (camera.far < fogFar + 200) {
-    camera.far = fogFar + 400;
-    camera.updateProjectionMatrix();
+  // Fog is expensive per pixel — only on desktop. Low-end: no fog.
+  if (scene.fog) {
+    const camToHole = Math.hypot(height, depth);
+    const fogFar = Math.max(
+      currentLevel.fog[1], camToHole * 2.2, height * 2.4, player.r * 8 + 400);
+    scene.fog.far = fogFar;
+    scene.fog.near = Math.min(fogFar * 0.35, camToHole * 0.55);
+    if (camera.far < fogFar + 200) {
+      camera.far = fogFar + 400;
+      camera.updateProjectionMatrix();
+    }
   }
 
   sun.position.set(player.x - 260, 520, player.z + 180);

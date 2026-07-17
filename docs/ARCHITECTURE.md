@@ -11,11 +11,11 @@ prop triangle count is **not** the primary problem once props are simple.
 
 | System | Cost | Notes |
 |--------|------|--------|
-| **Ground ShapeGeometry rebuild** | Very high | Allocates + uploads a new mesh whenever the hole moves. GC spikes on A9X. |
-| **Fill rate** | High | 12.9" panel; even at `renderScale < 1` shading full-screen fog/ground is expensive. |
-| **Per-frame scene thrash** | Medium | `scene.add`/`remove` for frustum streaming every N frames. |
-| **DOM HUD** | Low–med | Tag `style.left/top` every frame. |
-| **Prop meshes** | Low after City Test | 1 mesh/basic material each. |
+| **Ground ShapeGeometry rebuild** | Very high | Was #1 — removed in v2.37+. |
+| **Full-screen hole discard shader** | Very high | Per-pixel loop on the entire ground (fills the screen). Removed in v2.38 — mouth disc instead. |
+| **Fog** | High | Per-fragment on every pixel. Disabled on lowEnd. |
+| **Fill rate / resolution** | High | 12.9" panel; `renderScale ~0.48`. |
+| **Prop meshes** | Low on City Test | ~30 basic boxes still lagged until ground/fog fixed. |
 
 ## Intended design (v2.37+)
 

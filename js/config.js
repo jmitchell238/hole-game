@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.37.001';
+const GAME_VERSION = '2.38.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -36,20 +36,19 @@ const GFX = {
   largeTablet: IS_LARGE_TABLET,
   // Never use devicePixelRatio 2 on tablets — A9X cannot fill 2732×2048.
   pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
-  // A9X fill-rate: internal res ~55% of CSS (stretched). Biggest non-JS win.
-  renderScale: IS_LOW_END ? 0.55 : 1,
+  // A9X fill-rate: ~half CSS resolution (stretched to full screen)
+  renderScale: IS_LOW_END ? 0.48 : 1,
   antialias: false,
-  shadowMapSize: IS_LOW_END ? 256 : 1024,
+  shadowMapSize: 256,
   softShadows: false,
-  groundCurve: 12, // unused when ground is static plane
-  // 1k ground texture — enough for blocks, cheap upload
-  maxTexSize: IS_LOW_END ? 1024 : 2048,
+  groundCurve: 8,
+  maxTexSize: IS_LOW_END ? 512 : 2048,
   anisotropy: 1,
-  propSeg: IS_LOW_END ? 5 : 8,
-  useGltf: !IS_TOUCH,
+  propSeg: IS_LOW_END ? 4 : 8,
+  useGltf: false, // always procedural on this path for predictable cost
   mergeProps: true,
-  // Frustum streaming only helps with hundreds of props (see spatial.js)
-  streamProps: true,
+  // Don't thrash scene graph on small maps (see spatial.js streamMinProps)
+  streamProps: IS_LOW_END ? false : true,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

@@ -1,20 +1,17 @@
-// Renderer, scene, camera, lights, static ground.
+// Renderer, scene, camera, lights, STATIC ground (no per-frame geometry work).
 //
-// CRITICAL PERF: ground is a STATIC plane. Hole openings are cut in the
-// fragment shader (discard). We never rebuild ShapeGeometry while moving —
-// that alloc/upload/GC pattern was the real iPad killer even with 90 props.
+// iPad lesson: ShapeGeometry rebuilds AND full-screen hole-discard shaders both
+// destroy A9X frame time. Ground is a plain textured plane. The hole opening is
+// a black disc on the hole object (see hole.js) — zero ground rebuilds forever.
 
 const renderer = new THREE.WebGLRenderer({
-  antialias: GFX.antialias,
+  antialias: false,
   powerPreference: 'high-performance',
   alpha: false,
 });
 renderer.setPixelRatio(GFX.pixelRatio);
 renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = GFX.softShadows
-  ? THREE.PCFSoftShadowMap
-  : THREE.BasicShadowMap;
+renderer.shadowMap.enabled = false; // never on gen-1 profile path by default
 
 const frameEl = document.getElementById('frame');
 frameEl.appendChild(renderer.domElement);
@@ -50,29 +47,30 @@ layoutFrame();
 const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7a9a6a, 0.85);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 1.0);
-sun.castShadow = true;
+sun.castShadow = false;
 sun.shadow.mapSize.set(GFX.shadowMapSize, GFX.shadowMapSize);
-const shadowSpan = GFX.mobile ? 280 : 400;
 Object.assign(sun.shadow.camera, {
-  left: -shadowSpan, right: shadowSpan, top: shadowSpan, bottom: -shadowSpan,
-  near: 50, far: 1400,
+  left: -300, right: 300, top: 300, bottom: -300, near: 50, far: 1200,
 });
-sun.shadow.bias = -0.0005;
 scene.add(sun);
 scene.add(sun.target);
 
 function applyEnvironment(level) {
   scene.background = new THREE.Color(level.sky);
-  scene.fog = new THREE.Fog(level.sky, level.fog[0], level.fog[1]);
+  // Fog is per-fragment on EVERY pixel — kill it on low-end iPads
+  if (GFX.lowEnd) {
+    scene.fog = null;
+  } else {
+    scene.fog = new THREE.Fog(level.sky, level.fog[0], level.fog[1]);
+  }
   hemi.color.set(level.hemi[0]);
   hemi.groundColor.set(level.hemi[1]);
   hemi.intensity = level.hemi[2];
   sun.color.set(level.sunColor);
 }
 
-// ---- Procedural textures ----------------------------------------------------
 function canvasTex(w, h, draw) {
-  const max = GFX.maxTexSize || 4096;
+  const max = GFX.maxTexSize || 2048;
   const tw = Math.min(w, max), th = Math.min(h, max);
   const c = document.createElement('canvas');
   c.width = tw; c.height = th;
@@ -81,65 +79,16 @@ function canvasTex(w, h, draw) {
   draw(ctx, w, h);
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = GFX.anisotropy || 1;
+  t.anisotropy = 1;
   t.generateMipmaps = true;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   t.magFilter = THREE.LinearFilter;
   return t;
 }
 
-// ---- Ground: static plane + shader hole cutouts -----------------------------
-const GROUND_MAX_HOLES = 8;
+// ---- Ground: one static plane, never rebuilt ---------------------------------
 let ground = null;
 let skirt = null;
-const _holeData = [];
-for (let i = 0; i < GROUND_MAX_HOLES; i++) _holeData.push(new THREE.Vector4());
-
-function makeGroundMaterial(map) {
-  // Basic = no lighting on the biggest screen-filling mesh
-  const mat = new THREE.MeshBasicMaterial({ map: map });
-  mat.userData.holeCount = 0;
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.holeCount = { value: mat.userData.holeCount || 0 };
-    shader.uniforms.holes = { value: _holeData };
-    mat.userData.shader = shader;
-
-    // highp world position for reliable discards on mobile GPUs
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        '#include <common>',
-        '#include <common>\nvarying highp vec3 vGrdWorld;')
-      .replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nvGrdWorld = (modelMatrix * vec4(position, 1.0)).xyz;');
-
-    if (shader.vertexShader.indexOf('vGrdWorld') < 0) {
-      shader.vertexShader = 'varying highp vec3 vGrdWorld;\n' + shader.vertexShader;
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <project_vertex>',
-        'vGrdWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#include <project_vertex>');
-    }
-
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-        uniform int holeCount;
-        uniform vec4 holes[${GROUND_MAX_HOLES}];
-        varying highp vec3 vGrdWorld;`)
-      .replace(
-        '#include <clipping_planes_fragment>',
-        `#include <clipping_planes_fragment>
-        for (int i = 0; i < ${GROUND_MAX_HOLES}; i++) {
-          if (i >= holeCount) break;
-          highp vec2 d = vGrdWorld.xz - holes[i].xy;
-          if (dot(d, d) < holes[i].z * holes[i].z) discard;
-        }`);
-  };
-  mat.customProgramCacheKey = () => 'voidrush-static-ground-v3';
-  mat.needsUpdate = true;
-  return mat;
-}
 
 function buildSkirt(level) {
   if (skirt) {
@@ -149,7 +98,7 @@ function buildSkirt(level) {
   }
   const W = level.world, D = HOLE_DEPTH + 12;
   const mat = new THREE.MeshBasicMaterial({
-    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide,
+    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: false,
   });
   skirt = new THREE.Group();
   for (const [x, z, ry] of [[0, -W, 0], [0, W, 0], [-W, 0, Math.PI / 2], [W, 0, Math.PI / 2]]) {
@@ -171,40 +120,26 @@ function buildGround(level) {
   }
 
   const gtex = level.createGroundTexture();
-  // PlaneGeometry UVs are 0–1 over the whole plane = whole world texture once
+  // Plane UVs are 0–1 → full texture once across the world
   gtex.repeat.set(1, 1);
   gtex.offset.set(0, 0);
   gtex.wrapS = THREE.ClampToEdgeWrapping;
   gtex.wrapT = THREE.ClampToEdgeWrapping;
 
   const W = level.world;
-  // Static plane — NEVER replaced during play
-  const geo = new THREE.PlaneGeometry(2 * W, 2 * W, 1, 1);
-  ground = new THREE.Mesh(geo, makeGroundMaterial(gtex));
+  ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(2 * W, 2 * W, 1, 1),
+    new THREE.MeshBasicMaterial({ map: gtex, fog: !GFX.lowEnd }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = false;
   ground.castShadow = false;
-  ground.frustumCulled = false; // always fills view when looking down
+  ground.frustumCulled = false;
   scene.add(ground);
+  // No hole cutouts in the ground mesh — mouth disc on each hole covers it.
   refreshGround(true);
 }
 
-// Write hole cutout uniforms only — no geometry alloc.
+// Kept for API compatibility with rules/main — cheap no-op now.
 function refreshGround(/* force */) {
-  if (!ground || !ground.material) return;
-  const mat = ground.material;
-  const n = Math.min(holes.length, GROUND_MAX_HOLES);
-  const maxCut = currentLevel ? currentLevel.world * 0.9 : 1e9;
-  for (let i = 0; i < GROUND_MAX_HOLES; i++) {
-    if (i < n) {
-      const h = holes[i];
-      _holeData[i].set(h.x, h.z, Math.min(h.r * 1.02, maxCut), 0);
-    } else {
-      _holeData[i].set(0, 0, 0, 0);
-    }
-  }
-  mat.userData.holeCount = n;
-  if (mat.userData.shader) {
-    mat.userData.shader.uniforms.holeCount.value = n;
-  }
+  /* intentionally empty: ground is static; hole mouth discs move with holes */
 }

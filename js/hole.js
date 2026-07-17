@@ -68,33 +68,38 @@ function makeHole(x, z, name, isPlayer) {
       scene.add(deco);
     }
   }
-  // A real pit: cylindrical wall fading to black, with a floor far below.
+  // Pit walls + floor (shared unit geos, scaled by r in syncHole)
   const wall = new THREE.Mesh(PIT_GEO, pitMat);
-  wall.position.set(x, -HOLE_DEPTH/2, z);
+  wall.position.set(x, -HOLE_DEPTH / 2, z);
   const cap = new THREE.Mesh(CAP_GEO, CAP_MAT);
-  cap.rotation.x = -Math.PI/2; cap.position.set(x, -HOLE_DEPTH + 1, z);
+  cap.rotation.x = -Math.PI / 2; cap.position.set(x, -HOLE_DEPTH + 1, z);
+
+  // Black mouth disc covers the solid ground plane where the hole is.
+  // (Cheaper than cutting ShapeGeometry or a full-screen discard shader.)
+  const mouth = new THREE.Mesh(
+    CAP_GEO,
+    new THREE.MeshBasicMaterial({ color: 0x050505, fog: false }));
+  mouth.rotation.x = -Math.PI / 2;
+  mouth.position.set(x, 0.04, z);
+
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.88, 1.06, HOLE_SEG),
-    new THREE.MeshBasicMaterial({ color: ringColor }));
-  // Each ring gets its own height so overlapping rings never z-fight/flicker.
-  ring.rotation.x = -Math.PI/2;
-  ring.position.set(x, 0.22 + Math.random()*0.08, z);
-  scene.add(wall); scene.add(cap); scene.add(ring);
+    new THREE.MeshBasicMaterial({ color: ringColor, fog: false }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, 0.22 + Math.random() * 0.06, z);
+  scene.add(wall); scene.add(cap); scene.add(mouth); scene.add(ring);
 
-  // Ghost ring for player: x-ray silhouette when behind buildings
+  // Ghost ring (desktop only — depthTest:false is costly on A9X)
   let ghost = null;
-  if (isPlayer) {
+  if (isPlayer && !GFX.lowEnd) {
     ghost = new THREE.Mesh(
       new THREE.RingGeometry(0.88, 1.06, HOLE_SEG),
       new THREE.MeshBasicMaterial({
-        color: ringColor,
-        transparent: true,
-        opacity: 0.3,
-        depthTest: false,
-        depthWrite: false
+        color: ringColor, transparent: true, opacity: 0.3,
+        depthTest: false, depthWrite: false, fog: false,
       }));
-    ghost.rotation.x = -Math.PI/2;
-    ghost.position.set(x, 0.22 + Math.random()*0.08 + 0.02, z);
+    ghost.rotation.x = -Math.PI / 2;
+    ghost.position.set(x, 0.28, z);
     ghost.renderOrder = 999;
     scene.add(ghost);
   }
@@ -103,13 +108,14 @@ function makeHole(x, z, name, isPlayer) {
   tag.className = 'tag'; tag.textContent = name;
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
-  return { wall, cap, ring, ghost, tag, deco, x, z, r: 12, name, isPlayer,
+  return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: 12, name, isPlayer,
     tx: x, tz: z, retarget: 0, _ringLv: 1,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }
 
 function removeHole(h) {
   scene.remove(h.wall); scene.remove(h.cap); scene.remove(h.ring);
+  if (h.mouth) scene.remove(h.mouth);
   if (h.ghost) {
     scene.remove(h.ghost);
     if (h.ghost.geometry) h.ghost.geometry.dispose();
@@ -138,7 +144,7 @@ function grow(h, addArea) {
   h.r = Math.sqrt((areaOf(h.r)+addArea)/Math.PI);
 }
 
-// Push the pit/cap/ring meshes to the hole's current position and size.
+// Push the pit/cap/ring/mouth meshes to the hole's current position and size.
 function syncHole(h) {
   const s = h.r;
   h.wall.scale.set(s, 1, s);
@@ -147,8 +153,11 @@ function syncHole(h) {
   h.wall.position.x = h.x; h.wall.position.z = h.z;
   h.cap.position.x = h.x;  h.cap.position.z = h.z;
   h.ring.position.x = h.x; h.ring.position.z = h.z;
+  if (h.mouth) {
+    h.mouth.scale.set(s, s, s);
+    h.mouth.position.x = h.x; h.mouth.position.z = h.z;
+  }
 
-  // Sync ghost ring (player only)
   if (h.ghost) {
     h.ghost.scale.set(s, s, s);
     h.ghost.position.x = h.x; h.ghost.position.z = h.z;
