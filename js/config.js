@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.40.001';
+const GAME_VERSION = '2.40.002';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -73,13 +73,16 @@ const GFX = {
   mergeProps: true,
   // Stream when map is dense so zoomed-out late game isn't "draw everything"
   streamProps: IS_LOW_END,
-  clutterKeep: IS_LOW_END ? 0.18 : 1,
+  // denser maps still thin clutter; parks/sidewalks also hard-cut in levels
+  clutterKeep: IS_LOW_END ? 0.12 : 1,
   hudHz: IS_LOW_END ? 8 : 30,
-  // Softer camera pullback on iPad — less world on screen = less nausea/lag
-  camHeightMul: IS_LOW_END ? 4.2 : 7.3,
-  camDepthMul: IS_LOW_END ? 3.6 : 6.2,
-  camHeightCap: IS_LOW_END ? 520 : 99999,
-  camDepthCap: IS_LOW_END ? 440 : 99999,
+  // Keep hole ~constant on-screen fraction as r grows. Freezing the camera
+  // with caps while r kept growing made the hole fill the screen (nausea) and
+  // then crash past world bounds. streamProps handles late-game draw cost.
+  camHeightMul: IS_LOW_END ? 5.8 : 7.3,
+  camDepthMul: IS_LOW_END ? 4.9 : 6.2,
+  camHeightCap: 99999,
+  camDepthCap: 99999,
   // label for FPS chip
   qualityLabel: IS_LOW_END ? 'ipad-perf' : (IS_IPHONE ? 'iphone' : (IS_TOUCH ? 'mobile' : 'desktop')),
 };

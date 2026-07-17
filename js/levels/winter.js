@@ -336,29 +336,35 @@ function populate(addProp) {
       addProp('tower', cx, cz, 0);
       addProp('apartment', ...inBlock(-80, 80));
       addProp('shop', ...inBlock(-80, -80));
-      addProp('shop', ...inBlock(80, -80), Math.PI/2);
-      addProp('shop', ...inBlock(80, 80), Math.PI);
-      for (let k = 0; k < 15; k++)
+      if (!lite) {
+        addProp('shop', ...inBlock(80, -80), Math.PI/2);
+        addProp('shop', ...inBlock(80, 80), Math.PI);
+      }
+      const crowdN = lite ? 3 : 15;
+      for (let k = 0; k < crowdN; k++)
         addProp('person', ...inBlock(rand(-40, 100),
           (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
       addProp('bench', ...inBlock(-30, 40), Math.PI);
-      addProp('bench', ...inBlock(30, 40), Math.PI);
-      addProp('bench', ...inBlock(-30, -40), 0);
-      addProp('bench', ...inBlock(30, -40), 0);
+      if (!lite) {
+        addProp('bench', ...inBlock(30, 40), Math.PI);
+        addProp('bench', ...inBlock(-30, -40), 0);
+        addProp('bench', ...inBlock(30, -40), 0);
+      }
       addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('dog', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      for (let k = 0; k < 3; k++)
+      if (!lite) addProp('mailbox', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      if (!lite) addProp('dog', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      for (let k = 0; k < (lite ? 1 : 3); k++)
         addProp('cone', ...inBlock(rand(-90, 90), rand(-90, 90)));
       addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
-      addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
+      if (!lite) addProp('trashcan', ...inBlock(rand(-90, 90), rand(-90, 90)));
 
       // CHRISTMAS TREE CENTERPIECE with giftboxes (on first downtown block)
       if (!hasPlacedTree) {
         hasPlacedTree = true;
         addProp('xmastree', cx, cz, 0);
-        for (let gb = 0; gb < 10; gb++) {
-          const angle = (gb / 10) * Math.PI * 2;
+        const gifts = lite ? 4 : 10;
+        for (let gb = 0; gb < gifts; gb++) {
+          const angle = (gb / gifts) * Math.PI * 2;
           const distance = 35;
           const gbx = cx + Math.cos(angle) * distance;
           const gbz = cz + Math.sin(angle) * distance;
@@ -382,18 +388,18 @@ function populate(addProp) {
       addProp('snowpine', ...inBlock(96, 0));
       addProp('snowpine', ...inBlock(-33, 0));
       addProp('snowpine', ...inBlock(33, 0));
-      const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
+      // reuse outer `lite` (do not redeclare — same block scope)
       for (let k = 0; k < (lite ? 1 : 4); k++)
         addProp('snowman', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 60)));
       for (let k = 0; k < (lite ? 1 : 5); k++)
         addProp('giftbox', ...inBlock(rand(-90, 90), pick([-1,1])*rand(10, 70)));
       for (let k = 0; k < (lite ? 1 : 3); k++)
         addProp('sled', ...inBlock(rand(-95, 95), pick([-1,1])*rand(30, 80)));
-      for (let k = 0; k < (lite ? 3 : 10); k++)
+      for (let k = 0; k < (lite ? 2 : 10); k++)
         addProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));
       addProp('mailbox', ...inBlock(rand(-90, 90), -100));
       if (!lite) addProp('mailbox', ...inBlock(rand(-90, 90), 100));
-      for (let k = 0; k < (lite ? 3 : 9); k++)
+      for (let k = 0; k < (lite ? 2 : 9); k++)
         addProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
       if (!lite) {
         addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
@@ -406,8 +412,9 @@ function populate(addProp) {
         if (!hasPlacedTree) {
           hasPlacedTree = true;
           addProp('xmastree', cx, cz, 0);
-          for (let gb = 0; gb < 10; gb++) {
-            const angle = (gb / 10) * Math.PI * 2;
+          const gifts = lite ? 4 : 10;
+          for (let gb = 0; gb < gifts; gb++) {
+            const angle = (gb / gifts) * Math.PI * 2;
             const distance = 35;
             const gbx = cx + Math.cos(angle) * distance;
             const gbz = cz + Math.sin(angle) * distance;
@@ -417,54 +424,64 @@ function populate(addProp) {
         // Add igloo to parks (except spawn)
         addProp('igloo', cx, cz, 0);
       }
-      for (const f of [-55, 55]) {
+      // Fewer fences on tablet
+      const fenceOffs = lite ? [0] : [-55, 55];
+      for (const f of fenceOffs) {
         addProp('fence', cx + f, cz - 88, 0);
         addProp('fence', cx + f, cz + 88, 0);
-        addProp('fence', cx - 88, cz + f, Math.PI/2);
-        addProp('fence', cx + 88, cz + f, Math.PI/2);
+        if (!lite) {
+          addProp('fence', cx - 88, cz + f, Math.PI/2);
+          addProp('fence', cx + 88, cz + f, Math.PI/2);
+        }
       }
-      // Snowpines instead of ~half the trees
-      for (let k = 0; k < 8; k++) {
+      // Parks were the densest blocks and ignored lite — thin hard on iPad
+      const pineN = lite ? 2 : 8;
+      const treeN = lite ? 2 : 7;
+      const bushN = lite ? 3 : 12;
+      const snowN = lite ? 1 : 3;
+      const dogN = lite ? 0 : 3;
+      const parkPeople = lite ? 3 : 14;
+      for (let k = 0; k < pineN; k++) {
         const dx = rand(-78, 78), dz = rand(-78, 78);
         if (isSpawn && Math.hypot(dx, dz) < 55) continue;
         if (!isSpawn && Math.hypot(dx, dz) < 26) continue;
         addProp('snowpine', ...inBlock(dx, dz));
       }
-      for (let k = 0; k < 7; k++) {
+      for (let k = 0; k < treeN; k++) {
         const dx = rand(-78, 78), dz = rand(-78, 78);
         if (isSpawn && Math.hypot(dx, dz) < 55) continue;
         if (!isSpawn && Math.hypot(dx, dz) < 26) continue;
         addProp('tree', ...inBlock(dx, dz));
       }
-      for (let k = 0; k < 12; k++) {
+      for (let k = 0; k < bushN; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
         addProp('bush', ...inBlock(dx, dz));
       }
-      // Snowmen in parks (2-3 per park)
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < snowN; k++) {
         const dx = rand(-85, 85), dz = rand(-85, 85);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
         addProp('snowman', ...inBlock(dx, dz));
       }
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < dogN; k++) {
         const dx = rand(-85, 85), dz = rand(-85, 85);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
         addProp('dog', ...inBlock(dx, dz));
       }
       addProp('bench', ...inBlock(rand(-60, 60), -75), 0);
-      addProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
-      addProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
-      addProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
-      for (let k = 0; k < 14; k++) {
+      if (!lite) {
+        addProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
+        addProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
+        addProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
+      }
+      for (let k = 0; k < parkPeople; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
         addProp('person', ...inBlock(dx, dz));
       }
     }
 
-    const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
-    const parkN = lite ? 2 : 5;
+    const parkN = lite ? 1 : 5;
     for (let k = 0; k < parkN; k++) {
       const side = (Math.random()*4)|0, off = BLOCK/2 + 9, along = rand(-95, 95);
       if (side === 0)      addProp('car', cx + along, cz - off, 0);
