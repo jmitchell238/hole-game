@@ -1,5 +1,9 @@
 # VoidRush tests
 
+## Target device
+
+Graphics knobs in `js/config.js` (`GFX`) are tuned for a **1st-generation iPad Pro 12.9" (A9X, 2015)**: large Retina panel, limited fill rate/VRAM. Touch tablets get `renderScale ≈ 0.58`, 1k textures, aggressive spatial streaming, and no GLTF clones.
+
 ## Perf / integration (`tests/perf`)
 
 Measures init, `update`, `render`, and **how many props stay parented to the scene** as the hole (camera) grows. Late-game lag is mostly “everything still drawn when zoomed out” — these budgets catch that.

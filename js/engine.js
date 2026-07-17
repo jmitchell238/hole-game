@@ -8,6 +8,8 @@ const renderer = new THREE.WebGLRenderer({
   antialias: GFX.antialias,
   powerPreference: 'high-performance',
   alpha: false,
+  // Prefer lower precision on old iPad GPUs when available
+  precision: GFX.lowEnd ? 'mediump' : 'highp',
 });
 renderer.setPixelRatio(GFX.pixelRatio);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -17,12 +19,17 @@ renderer.shadowMap.type = GFX.softShadows
   : THREE.BasicShadowMap;
 const frameEl = document.getElementById('frame');
 frameEl.appendChild(renderer.domElement);
+// Let CSS size the canvas; we control only the drawing-buffer resolution.
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.display = 'block';
 
 // Handle WebGL context loss by reloading
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); location.reload(); });
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 16/9, 1, 6000);
+// Shorter far plane on low-end — less overdraw in the distance
+const camera = new THREE.PerspectiveCamera(55, 16/9, 1, GFX.lowEnd ? 2200 : 6000);
 
 // The frame is pinned to the viewport by CSS (inset:0) and layoutFrame just measures it.
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };
@@ -32,8 +39,12 @@ function layoutFrame() {
   FRAME.h = Math.round(r.height);
   FRAME.x = Math.round(r.left);
   FRAME.y = Math.round(r.top);
-  renderer.setSize(FRAME.w, FRAME.h);
-  camera.aspect = FRAME.w / FRAME.h;
+  // Internal resolution = CSS size × renderScale (A9X fill-rate lifesaver on 12.9")
+  const s = GFX.renderScale || 1;
+  const bw = Math.max(1, Math.round(FRAME.w * s));
+  const bh = Math.max(1, Math.round(FRAME.h * s));
+  renderer.setSize(bw, bh, false); // false = don't override CSS size
+  camera.aspect = FRAME.w / Math.max(1, FRAME.h);
   const landscape = FRAME.w >= FRAME.h;
   camera.fov = landscape ? 55 : 70;      // wider lens when held upright
   camera.updateProjectionMatrix();

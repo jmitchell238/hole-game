@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.33.001';
+const GAME_VERSION = '2.33.002';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -19,31 +19,42 @@ const BOT_NAMES = ['xX_Reaper','mossy','GulpLord','Tina','pixelpete','NovaCat',
   'bigmike','quinn','404notfound','senpai','DustBunny','Vortex'];
 
 // ---- Device / graphics quality ----------------------------------------------
-// iPad/iPhone home-screen PWAs report as desktop Safari sometimes; touch points
-// catch those. This drives cheaper ground rebuilds, textures, and shadows.
+// Target tablet: 1st-gen iPad Pro 12.9" (2015, A9X) — large Retina panel + weak GPU.
+// iPadOS PWAs often report as desktop Safari; touch points catch those.
 const IS_TOUCH = ('ontouchstart' in window) ||
   (navigator.maxTouchPoints && navigator.maxTouchPoints > 1) ||
   /iPad|iPhone|iPod|Android/i.test(navigator.userAgent || '');
+// Large tablet class (12.9" is 1024×1366 CSS points). Always treat touch tablets
+// as the A9X-class profile so the game stays playable on gen-1 Pro hardware.
+const IS_LARGE_TABLET = IS_TOUCH &&
+  Math.max(screen.width || 0, screen.height || 0) >= 1000;
+const IS_LOW_END = IS_TOUCH; // gen-1 iPad Pro is the floor we optimize for
+
 const GFX = {
   mobile: IS_TOUCH,
-  // Retina iPads at 2× fill 4× the pixels — biggest GPU cost after the ground.
+  lowEnd: IS_LOW_END,
+  largeTablet: IS_LARGE_TABLET,
+  // Never use devicePixelRatio 2 on tablets — A9X cannot fill 2732×2048.
   pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
-  antialias: !IS_TOUCH,
-  shadowMapSize: IS_TOUCH ? 512 : 1024,
+  // Draw at a fraction of CSS size, stretch up (fill-rate win on big panels).
+  // ~0.58 ≈ 1/3 the pixels of full CSS size on 12.9" landscape.
+  renderScale: IS_LOW_END ? 0.58 : 1,
+  antialias: !IS_TOUCH, // MSAA is too expensive on A9X fill rate
+  shadowMapSize: IS_LOW_END ? 256 : 1024,
   softShadows: !IS_TOUCH,
-  // ShapeGeometry curve segments per hole cutout
-  groundCurve: IS_TOUCH ? 10 : 16,
-  // Max side for procedural canvas textures (levels request 4096)
-  maxTexSize: IS_TOUCH ? 2048 : 4096,
-  anisotropy: IS_TOUCH ? 1 : 4,
-  // Radial segments for cylinders/spheres/cones in props
-  propSeg: IS_TOUCH ? 5 : 8,
-  // Skip KayKit GLTF clones on tablets — multi-node graphs × 2k props kills FPS
+  groundCurve: IS_LOW_END ? 8 : 16,
+  // 1k ground textures — 4k uploads thrash gen-1 VRAM
+  maxTexSize: IS_LOW_END ? 1024 : 4096,
+  anisotropy: 1,
+  propSeg: IS_LOW_END ? 4 : 8,
   useGltf: !IS_TOUCH,
-  // Merge multi-mesh props into fewer draw calls
   mergeProps: true,
-  // Spatial streaming + pixel cull (see js/spatial.js)
   streamProps: true,
+  // Spatial streaming knobs (js/spatial.js)
+  viewMaxRange: IS_LOW_END ? 480 : 1100,
+  viewMinPixels: IS_LOW_END ? 8 : 2.5,
+  viewSmallRangeMul: IS_LOW_END ? 0.30 : 0.65,
+  fogCap: IS_LOW_END ? 900 : 2200,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

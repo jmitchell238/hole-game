@@ -12,17 +12,18 @@
 //
 // objects[] remains the source of truth for gameplay; this only parents meshes.
 
+// Tuned for 1st-gen iPad Pro 12.9" (A9X) via GFX.* — see js/config.js
 const SPATIAL = {
   cell: 120,
   // Re-evaluate parenting every N frames (not every frame — avoids thrash)
-  period: 2,
-  // Minimum on-screen size in px before we bother drawing a prop
-  minPixels: (typeof GFX !== 'undefined' && GFX.mobile) ? 4 : 2.5,
+  period: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 3 : 2,
+  // Minimum on-screen size in CSS px before we bother drawing a prop
+  minPixels: (typeof GFX !== 'undefined' && GFX.viewMinPixels) || 2.5,
   // Absolute hard cap on how far we keep props parented (world units)
-  maxRange: (typeof GFX !== 'undefined' && GFX.mobile) ? 700 : 1100,
-  // Small-prop LOD: things smaller than this radius only draw when closer
+  maxRange: (typeof GFX !== 'undefined' && GFX.viewMaxRange) || 1100,
+  // Small-prop LOD: people/dogs/bushes only when closer than maxRange * mul
   smallR: 8,
-  smallRangeMul: (typeof GFX !== 'undefined' && GFX.mobile) ? 0.45 : 0.65,
+  smallRangeMul: (typeof GFX !== 'undefined' && GFX.viewSmallRangeMul) || 0.65,
 };
 
 let _streamTick = 0;
