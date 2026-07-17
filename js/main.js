@@ -128,24 +128,6 @@ function render() {
   const lookAhead = player.r * 0.35;
   camera.lookAt(player.x, 0, player.z - lookAhead * 0.15);
 
-  // Fog: keep a soft horizon. Old formula scaled fogFar with camera height so
-  // late-game fog never kicked in and the map stayed a sharp floating waffle.
-  if (scene.fog) {
-    const camToHole = Math.hypot(height, depth);
-    const W = (currentLevel && currentLevel.world) || 600;
-    // Fade starts just past mid-world, fully fogged before the far edge reads as a hard cut
-    const fogFar = Math.min(
-      Math.max(W * 1.35, camToHole * 1.15 + player.r * 2.5),
-      W * 2.4);
-    const fogNear = Math.max(player.r * 2.5, fogFar * 0.28);
-    scene.fog.far = fogFar;
-    scene.fog.near = Math.min(fogNear, fogFar * 0.55);
-    if (camera.far < fogFar + 400) {
-      camera.far = fogFar + 800;
-      camera.updateProjectionMatrix();
-    }
-  }
-
   sun.position.set(player.x - 260, 520, player.z + 180);
   sun.target.position.set(player.x, 0, player.z);
 

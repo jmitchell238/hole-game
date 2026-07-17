@@ -63,7 +63,7 @@ if (!GFX.lowEnd) {
 function applyEnvironment(level) {
   scene.background = new THREE.Color(level.sky);
   // No fog on tablet — per-pixel fog is free lag
-  scene.fog = GFX.lowEnd ? null : new THREE.Fog(level.sky, level.fog[0], level.fog[1]);
+  scene.fog = null;   // fog rejected: late game must stay clear on every device
   hemi.color.set(level.hemi[0]);
   hemi.groundColor.set(level.hemi[1]);
   hemi.intensity = level.hemi[2] * (GFX.lowEnd ? 1.15 : 1);
@@ -108,7 +108,7 @@ function buildSkirt(level) {
   if (GFX.lowEnd) { skirt = null; return; }
   const W = level.world, D = HOLE_DEPTH + 12;
   const mat = new THREE.MeshBasicMaterial({
-    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: true,
+    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: false,
   });
   skirt = new THREE.Group();
   for (const [x, z, ry] of [[0, -W, 0], [0, W, 0], [-W, 0, Math.PI / 2], [W, 0, Math.PI / 2]]) {
@@ -142,11 +142,10 @@ function buildGround(level) {
   gtex.wrapT = THREE.ClampToEdgeWrapping;
 
   const W = level.world;
-  // Fog ON so the far edge of the map dissolves into the sky instead of
-  // reading as a hard floating waffle (was fog:false — always sharp).
+  // Underlay (huge soil-colored plane) handles the edge look — fog off for late-game clarity.
   ground = new THREE.Mesh(
     new THREE.PlaneGeometry(2 * W, 2 * W, 1, 1),
-    new THREE.MeshBasicMaterial({ map: gtex, fog: true }));
+    new THREE.MeshBasicMaterial({ map: gtex, fog: false }));
   ground.rotation.x = -Math.PI / 2;
   ground.matrixAutoUpdate = false;
   ground.updateMatrix();
@@ -160,7 +159,7 @@ function buildGround(level) {
   const UW = Math.max(W * 6, 4000);
   groundUnderlay = new THREE.Mesh(
     new THREE.PlaneGeometry(UW, UW, 1, 1),
-    new THREE.MeshBasicMaterial({ color: underColor, fog: true }));
+    new THREE.MeshBasicMaterial({ color: underColor, fog: false }));
   groundUnderlay.rotation.x = -Math.PI / 2;
   groundUnderlay.position.y = -0.4;
   groundUnderlay.matrixAutoUpdate = false;
