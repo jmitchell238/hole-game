@@ -72,7 +72,7 @@ const GFX = {
   useGltf: !IS_TOUCH && !IS_IPHONE, // desktop can use GLTF; phones/tablets procedural
   mergeProps: true,
   // Stream when map is dense so zoomed-out late game isn't "draw everything"
-  streamProps: IS_LOW_END,
+  streamProps: IS_TOUCH,
   // denser maps still thin clutter; parks/sidewalks also hard-cut in levels
   clutterKeep: IS_LOW_END ? 0.12 : 1,
   hudHz: IS_LOW_END ? 8 : 30,

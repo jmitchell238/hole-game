@@ -104,6 +104,14 @@ function streamProps(force) {
       continue;
     }
 
+    // Sub-pixel at this camera height — skip entirely (late-game de-clutter)
+    const apparent = Math.max(o.r, (o.h || 4) * 0.45);
+    if (apparent < camera.position.y * 0.011 && !o.falling) {
+      if (o.mesh.parent) scene.remove(o.mesh);
+      o._streamed = false;
+      continue;
+    }
+
     const rad = Math.max(o.r * 1.5, (o.h || 4) * 0.6, 6);
     _sphere.center.set(o.x, (o.h || 8) * 0.4, o.z);
     _sphere.radius = rad;
