@@ -96,6 +96,7 @@ function applyGfxSettings() {
 
 let _hudTick = 0;
 let _fpsFrames = 0, _fpsLast = 0, _fps = 0;
+let _tunerLowCount = 0, _tunerDemoted = false, _matchStartMs = 0;
 
 /** Show/hide the FPS chip. Called from Settings and the render loop. */
 function setFpsOverlay(on, fpsValue) {
@@ -115,6 +116,37 @@ function setFpsOverlay(on, fpsValue) {
   el.textContent = (fps ? fps.toFixed(0) : '—') + ' fps · n=' +
     (typeof objects !== 'undefined' ? objects.length : 0) +
     ' · ' + (GFX.qualityLabel || '?');
+}
+
+/** Auto-demote slow devices to performance tier, persisted for session. */
+function autoDemoteToPerf() {
+  if (_tunerDemoted) return;
+  _tunerDemoted = true;
+  SAVE.measuredTier = 'perf';
+  persistSave();
+  // Live-apply the cheap wins now; boot-time settings (precision, HOLE_SEG,
+  // renderer antialias) pick up the persisted tier on next reload.
+  GFX.lowEnd = true;
+  GFX.tier = 'perf';
+  GFX.renderScale = 0.45;
+  GFX.pixelRatio = 1;
+  GFX.clutterKeep = 0.12;
+  GFX.hudHz = 8;
+  GFX.camHeightMul = 4.6;
+  GFX.camDepthMul = 3.9;
+  GFX.qualityLabel = 'perf-auto';
+  renderer.setPixelRatio(1);
+  layoutFrame();
+  sun.intensity = 0;
+  applyGfxSettings();
+  const flash = document.getElementById('levelUp');
+  if (flash) {
+    flash.textContent = 'PERFORMANCE MODE ON';
+    flash.classList.remove('hidden');
+    flash.style.animation = 'none';
+    void flash.offsetWidth;
+    flash.style.animation = 'levelUpPop 2s ease-out forwards';
+  }
 }
 
 function render() {
@@ -144,15 +176,24 @@ function render() {
 
   renderer.render(scene, camera);
 
-  // FPS overlay (Settings → Show FPS)
-  if (SAVE.showFps) {
-    _fpsFrames++;
-    const now = performance.now();
-    if (now - _fpsLast > 400) {
-      _fps = (_fpsFrames * 1000) / (now - _fpsLast);
-      _fpsFrames = 0; _fpsLast = now;
-      setFpsOverlay(true, _fps);
+  // FPS sampling (unconditional for tuner; display behind SAVE.showFps)
+  _fpsFrames++;
+  const now = performance.now();
+  if (now - _fpsLast > 400) {
+    _fps = (_fpsFrames * 1000) / (now - _fpsLast);
+    _fpsFrames = 0; _fpsLast = now;
+
+    // Tuner: auto-demote slow devices to perf tier (once per session, persisted)
+    const tunerActive = !_tunerDemoted && running &&
+      (SAVE.gfxQuality === 'auto' || !SAVE.gfxQuality) &&
+      GFX.tier === 'high' && GFX.mobile &&
+      (performance.now() - _matchStartMs) > 4000;
+    if (tunerActive) {
+      if (_fps < 38) { _tunerLowCount++; if (_tunerLowCount >= 12) autoDemoteToPerf(); }
+      else _tunerLowCount = 0;
     }
+
+    if (SAVE.showFps) setFpsOverlay(true, _fps);
   }
 
   // HUD tags every other frame (DOM writes are costly on old iOS)
@@ -229,6 +270,7 @@ function start() {
   pauseBtn.classList.remove('hidden');
   joyShow(SAVE.controls === 'touch');
   running = true; paused = false;
+  _matchStartMs = performance.now();
   last = performance.now();
   requestAnimationFrame(loop);
   updateLevelInfo();  // Show level info when starting
