@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.38.001';
+const GAME_VERSION = '2.39.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -30,14 +30,20 @@ const IS_LARGE_TABLET = IS_TOUCH &&
   Math.max(screen.width || 0, screen.height || 0) >= 1000;
 const IS_LOW_END = IS_TOUCH; // gen-1 iPad Pro is the floor we optimize for
 
+// Clutter types we can thin on tablet without breaking “feels like a city”
+const CLUTTER_PROPS = {
+  person: 1, dog: 1, bush: 1, mailbox: 1, trashcan: 1, cone: 1, hydrant: 1,
+  bench: 1, fence: 1, stest_person: 1, stest_light: 1,
+};
+
 const GFX = {
   mobile: IS_TOUCH,
   lowEnd: IS_LOW_END,
   largeTablet: IS_LARGE_TABLET,
-  // Never use devicePixelRatio 2 on tablets — A9X cannot fill 2732×2048.
-  pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
-  // A9X fill-rate: ~half CSS resolution (stretched to full screen)
-  renderScale: IS_LOW_END ? 0.48 : 1,
+  // Never 2× retina — 12.9" @2x is ~5.6M pixels; Minecraft native ≠ Safari WebGL
+  pixelRatio: 1,
+  // Internal draw buffer scale (CSS still full-screen). A9X fill-rate budget.
+  renderScale: IS_LOW_END ? 0.40 : 1,
   antialias: false,
   shadowMapSize: 256,
   softShadows: false,
@@ -45,10 +51,13 @@ const GFX = {
   maxTexSize: IS_LOW_END ? 512 : 2048,
   anisotropy: 1,
   propSeg: IS_LOW_END ? 4 : 8,
-  useGltf: false, // always procedural on this path for predictable cost
-  mergeProps: true,
-  // Don't thrash scene graph on small maps (see spatial.js streamMinProps)
-  streamProps: IS_LOW_END ? false : true,
+  useGltf: false,
+  mergeProps: !IS_LOW_END, // skip merge pass on tablet (CPU cost at load)
+  streamProps: false,      // Three.js frustum cull is enough; add/remove was thrash
+  // Keep this fraction of clutter props on tablet (0.25 = drop 75% of people/etc.)
+  clutterKeep: IS_LOW_END ? 0.28 : 1,
+  // HUD DOM writes at this Hz
+  hudHz: IS_LOW_END ? 8 : 20,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

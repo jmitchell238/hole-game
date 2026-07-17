@@ -127,22 +127,21 @@ function render() {
 
   renderer.render(scene, camera);
 
-  // FPS sample (debug)
+  // Always show FPS on tablet so we can stop guessing
   _fpsFrames++;
   const now = performance.now();
-  if (now - _fpsLast > 500) {
+  if (now - _fpsLast > 400) {
     _fps = (_fpsFrames * 1000) / (now - _fpsLast);
     _fpsFrames = 0; _fpsLast = now;
-    if (SAVE.debug) {
-      let el = document.getElementById('fpsChip');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'fpsChip';
-        el.style.cssText = 'position:absolute;top:8px;left:8px;z-index:50;padding:4px 8px;background:rgba(0,0,0,.55);color:#8f8;font:12px monospace;pointer-events:none;border-radius:6px';
-        document.getElementById('frame').appendChild(el);
-      }
-      el.textContent = _fps.toFixed(0) + ' fps · n=' + objects.length;
+    let el = document.getElementById('fpsChip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fpsChip';
+      el.style.cssText = 'position:absolute;top:8px;left:8px;z-index:50;padding:4px 8px;background:rgba(0,0,0,.6);color:#8f8;font:bold 13px monospace;pointer-events:none;border-radius:6px';
+      document.getElementById('frame').appendChild(el);
     }
+    el.textContent = _fps.toFixed(0) + ' fps · n=' + objects.length +
+      (GFX.lowEnd ? ' · lo' : '');
   }
 
   // HUD tags every other frame (DOM writes are costly on old iOS)
@@ -320,12 +319,16 @@ function endMatch() {
 }
 
 function loop(now) {
-  if (!running || paused) { render(); return; }
-  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if (!running || paused) {
+    // Single idle frame when paused — don't spin the GPU
+    return;
+  }
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
   update(dt);
   render();
-  if (running) updateHud();
-  if (!paused) requestAnimationFrame(loop);
+  updateHud(false);
+  requestAnimationFrame(loop);
 }
 
 buildLevelSelect();

@@ -62,7 +62,8 @@ function makeHole(x, z, name, isPlayer) {
     ringColor = parseInt(col.hex.slice(1), 16);
     tagColor = col.hex;
     if (col.id !== 'emerald') pitMat = customPitMaterial(col.hex);
-    if (Math.random() < 0.55) {
+    // Skip fancy bot cosmetics on tablet — extra meshes for free
+    if (!GFX.lowEnd && Math.random() < 0.55) {
       const designEntry = HOLE_DESIGNS[Math.floor(Math.random() * HOLE_DESIGNS.length)];
       deco = designEntry.build();
       scene.add(deco);

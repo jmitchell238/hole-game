@@ -16,33 +16,54 @@ function boardHtml(list) {
      <span>Lv${sizeLevel(h.r)} · ${Math.round(h.r)}</span></div>`).join('');
 }
 
-function updateHud() {
-  document.getElementById('timer').textContent = fmt(timeLeft);
-  const lv = sizeLevel(player.r);
-  document.getElementById('sizeInfo').textContent = 'Level ' + lv + ' · Size ' + Math.round(player.r);
+// Cache DOM nodes — getElementById every frame is silly on a 2015 iPad
+const _hud = {
+  timer: document.getElementById('timer'),
+  sizeInfo: document.getElementById('sizeInfo'),
+  progressInfo: document.getElementById('progressInfo'),
+  rows: document.getElementById('rows'),
+  levelUp: document.getElementById('levelUp'),
+};
+let _hudLastMs = 0;
+let _hudLastBoard = '';
 
-  // Level-up flash
-  if (lv > lastLevel) {
-    const levelUpEl = document.getElementById('levelUp');
-    levelUpEl.textContent = 'SIZE ' + lv + '!';
-    levelUpEl.classList.remove('hidden');
-    // Restart animation by removing and re-adding the element or toggling the class
-    void levelUpEl.offsetWidth; // trigger reflow
-    levelUpEl.style.animation = 'none';
-    void levelUpEl.offsetWidth; // trigger reflow again
-    levelUpEl.style.animation = 'levelUpPop 1s ease-out forwards';
+function updateHud(force) {
+  const now = performance.now();
+  const minDt = 1000 / (GFX.hudHz || 15);
+  if (!force && now - _hudLastMs < minDt) return;
+  _hudLastMs = now;
+
+  if (_hud.timer) _hud.timer.textContent = fmt(timeLeft);
+  if (!player) return;
+  const lv = sizeLevel(player.r);
+  if (_hud.sizeInfo)
+    _hud.sizeInfo.textContent = 'Level ' + lv + ' · Size ' + Math.round(player.r);
+
+  if (lv > lastLevel && _hud.levelUp) {
+    _hud.levelUp.textContent = 'SIZE ' + lv + '!';
+    _hud.levelUp.classList.remove('hidden');
+    _hud.levelUp.style.animation = 'none';
+    void _hud.levelUp.offsetWidth;
+    _hud.levelUp.style.animation = 'levelUpPop 1s ease-out forwards';
     lastLevel = lv;
   }
 
-  // Solo mode: show devour progress; Battle mode: show normal progress
+  if (!levelTotal) return;
+  const pct = Math.round((1 - objects.length / levelTotal) * 100);
   if (!battleMode) {
-    const devourPct = Math.round((1 - objects.length/levelTotal)*100);
-    document.getElementById('progressInfo').textContent = `Devoured ${devourPct}% · goal ${Math.round(targetPct)}%`;
+    if (_hud.progressInfo)
+      _hud.progressInfo.textContent =
+        'Devoured ' + pct + '% · goal ' + Math.round(targetPct) + '%';
   } else {
-    document.getElementById('progressInfo').textContent =
-      currentLevel.progressLabel + ': ' +
-      Math.round((1 - objects.length/levelTotal)*100) + '%';
-    document.getElementById('rows').innerHTML = boardHtml(holes);
+    if (_hud.progressInfo)
+      _hud.progressInfo.textContent =
+        currentLevel.progressLabel + ': ' + pct + '%';
+    // Leaderboard HTML only when the ranking text actually changes
+    const html = boardHtml(holes);
+    if (html !== _hudLastBoard) {
+      _hudLastBoard = html;
+      if (_hud.rows) _hud.rows.innerHTML = html;
+    }
   }
 }
 

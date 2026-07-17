@@ -653,12 +653,36 @@ function addProp(name, x, z, rotY) {
     console.warn('[props] unknown prop', name);
     return;
   }
+  // Thin clutter on tablet — keeps skyline, drops most people/trash/etc.
+  if (GFX.lowEnd && CLUTTER_PROPS[name] && Math.random() > GFX.clutterKeep) return;
+
   let mesh = BUILDERS[name]();
   const rot = rotY !== undefined ? rotY : rand(0, Math.PI * 2);
-  if (SAVE.shadows && SHADOW_CASTERS.has(name))
+  // Never set up shadows on low-end
+  if (!GFX.lowEnd && SAVE.shadows && SHADOW_CASTERS.has(name))
     mesh.traverse(m => { if (m.isMesh) m.castShadow = true; });
-  // Merge multi-mesh groups → fewer draw calls (still looks the same)
-  mesh = optimizeProp(mesh);
+
+  if (GFX.mergeProps) mesh = optimizeProp(mesh);
+  else {
+    mesh.traverse(m => {
+      if (m.isMesh) {
+        m.frustumCulled = true;
+        m.matrixAutoUpdate = false;
+        m.updateMatrix();
+        // Unlit path for tablet: convert Lambert→Basic where easy (no maps with complex lights)
+        if (GFX.lowEnd && m.material && m.material.isMeshLambertMaterial && !m.material.map) {
+          m.material = new THREE.MeshBasicMaterial({
+            color: m.material.color ? m.material.color.getHex() : 0xcccccc,
+            fog: false,
+          });
+        } else if (m.material) {
+          m.material.fog = false;
+        }
+      }
+    });
+    mesh.matrixAutoUpdate = false;
+  }
+
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rot;
   mesh.updateMatrix();

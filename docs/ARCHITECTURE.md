@@ -2,6 +2,10 @@
 
 Target floor: **1st-gen iPad Pro 12.9" (A9X, 2015)**.
 
+**Minecraft runs well because it is a native Metal app**, not Safari WebGL.
+We still refuse to accept a laggy hole.io clone — budget: static ground, no fog,
+~0.4× internal res, thin clutter, unlit materials, no per-frame mesh rebuilds.
+
 ## What does *not* dominate cost
 
 City Test with **~90 MeshBasicMaterial boxes** still lagged. That means

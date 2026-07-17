@@ -1,17 +1,22 @@
-// Renderer, scene, camera, lights, STATIC ground (no per-frame geometry work).
-//
-// iPad lesson: ShapeGeometry rebuilds AND full-screen hole-discard shaders both
-// destroy A9X frame time. Ground is a plain textured plane. The hole opening is
-// a black disc on the hole object (see hole.js) — zero ground rebuilds forever.
+// Renderer / scene / static ground.
+// Tablet goal: match “Minecraft can run here” expectation as closely as Safari allows.
+// Native Metal (Minecraft) ≠ WebGL in a browser tab — we still have zero excuse to
+// thrash the GPU with rebuilds, fog, shadows, or 2× resolution.
 
 const renderer = new THREE.WebGLRenderer({
   antialias: false,
   powerPreference: 'high-performance',
   alpha: false,
+  stencil: false,
+  depth: true,
+  // lowp is enough for our unlit materials on A9X
+  precision: GFX.lowEnd ? 'mediump' : 'highp',
 });
-renderer.setPixelRatio(GFX.pixelRatio);
+renderer.setPixelRatio(1);
 renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.shadowMap.enabled = false; // never on gen-1 profile path by default
+renderer.shadowMap.enabled = false;
+renderer.sortObjects = false; // skip transparent sort — big win with many meshes
+if (renderer.debug) renderer.debug.checkShaderErrors = false;
 
 const frameEl = document.getElementById('frame');
 frameEl.appendChild(renderer.domElement);
@@ -24,7 +29,7 @@ renderer.domElement.addEventListener('webglcontextlost', e => {
 });
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 16 / 9, 1, 6000);
+const camera = new THREE.PerspectiveCamera(55, 16 / 9, 1, 5000);
 
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };
 function layoutFrame() {
@@ -44,29 +49,25 @@ function layoutFrame() {
 }
 layoutFrame();
 
-const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7a9a6a, 0.85);
+// One cheap light. MeshBasic materials ignore lights; Lambert still uses this.
+// Dual lights (hemi+sun) roughly double Lambert cost — keep a single hemi on tablet.
+const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7a9a6a, 1.05);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff2d8, 1.0);
+const sun = new THREE.DirectionalLight(0xfff2d8, GFX.lowEnd ? 0 : 1.0);
 sun.castShadow = false;
-sun.shadow.mapSize.set(GFX.shadowMapSize, GFX.shadowMapSize);
-Object.assign(sun.shadow.camera, {
-  left: -300, right: 300, top: 300, bottom: -300, near: 50, far: 1200,
-});
-scene.add(sun);
-scene.add(sun.target);
+if (!GFX.lowEnd) {
+  scene.add(sun);
+  scene.add(sun.target);
+}
 
 function applyEnvironment(level) {
   scene.background = new THREE.Color(level.sky);
-  // Fog is per-fragment on EVERY pixel — kill it on low-end iPads
-  if (GFX.lowEnd) {
-    scene.fog = null;
-  } else {
-    scene.fog = new THREE.Fog(level.sky, level.fog[0], level.fog[1]);
-  }
+  // No fog on tablet — per-pixel fog is free lag
+  scene.fog = GFX.lowEnd ? null : new THREE.Fog(level.sky, level.fog[0], level.fog[1]);
   hemi.color.set(level.hemi[0]);
   hemi.groundColor.set(level.hemi[1]);
-  hemi.intensity = level.hemi[2];
-  sun.color.set(level.sunColor);
+  hemi.intensity = level.hemi[2] * (GFX.lowEnd ? 1.15 : 1);
+  if (!GFX.lowEnd) sun.color.set(level.sunColor);
 }
 
 function canvasTex(w, h, draw) {
@@ -80,13 +81,19 @@ function canvasTex(w, h, draw) {
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
   t.anisotropy = 1;
-  t.generateMipmaps = true;
-  t.minFilter = THREE.LinearMipmapLinearFilter;
+  // Mipmaps = extra GPU mem + gen cost; linear is fine for our look
+  if (GFX.lowEnd) {
+    t.generateMipmaps = false;
+    t.minFilter = THREE.LinearFilter;
+  } else {
+    t.generateMipmaps = true;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+  }
   t.magFilter = THREE.LinearFilter;
   return t;
 }
 
-// ---- Ground: one static plane, never rebuilt ---------------------------------
+// ---- Static ground (never rebuilt) ------------------------------------------
 let ground = null;
 let skirt = null;
 
@@ -96,6 +103,8 @@ function buildSkirt(level) {
     skirt.children.forEach(m => m.geometry.dispose());
     if (skirt.children[0]) skirt.children[0].material.dispose();
   }
+  // Skip skirt on tablet — 4 extra full-width planes for little gain
+  if (GFX.lowEnd) { skirt = null; return; }
   const W = level.world, D = HOLE_DEPTH + 12;
   const mat = new THREE.MeshBasicMaterial({
     color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: false,
@@ -120,7 +129,6 @@ function buildGround(level) {
   }
 
   const gtex = level.createGroundTexture();
-  // Plane UVs are 0–1 → full texture once across the world
   gtex.repeat.set(1, 1);
   gtex.offset.set(0, 0);
   gtex.wrapS = THREE.ClampToEdgeWrapping;
@@ -129,17 +137,14 @@ function buildGround(level) {
   const W = level.world;
   ground = new THREE.Mesh(
     new THREE.PlaneGeometry(2 * W, 2 * W, 1, 1),
-    new THREE.MeshBasicMaterial({ map: gtex, fog: !GFX.lowEnd }));
+    new THREE.MeshBasicMaterial({ map: gtex, fog: false }));
   ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = false;
-  ground.castShadow = false;
+  ground.matrixAutoUpdate = false;
+  ground.updateMatrix();
   ground.frustumCulled = false;
   scene.add(ground);
-  // No hole cutouts in the ground mesh — mouth disc on each hole covers it.
   refreshGround(true);
 }
 
-// Kept for API compatibility with rules/main — cheap no-op now.
-function refreshGround(/* force */) {
-  /* intentionally empty: ground is static; hole mouth discs move with holes */
-}
+// API no-op — hole mouth discs handle the opening (hole.js)
+function refreshGround() {}
