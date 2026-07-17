@@ -49,12 +49,13 @@ function updateHud(force) {
   }
 
   if (!levelTotal) return;
-  const pct = Math.round((1 - objects.length / levelTotal) * 100);
   if (!battleMode) {
+    const soloPct = Math.round(levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0);
     if (_hud.progressInfo)
       _hud.progressInfo.textContent =
-        'Devoured ' + pct + '% · goal ' + Math.round(targetPct) + '%';
+        'Devoured ' + soloPct + '% · goal ' + Math.round(targetPct) + '%';
   } else {
+    const pct = Math.round((1 - objects.length / levelTotal) * 100);
     if (_hud.progressInfo)
       _hud.progressInfo.textContent =
         currentLevel.progressLabel + ': ' + pct + '%';

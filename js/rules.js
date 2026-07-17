@@ -99,6 +99,7 @@ function update(dt) {
       // Growth counts once it's fully below the surface…
       if (!ob.swallowed && ob.mesh.position.y < -(ob.h + 3)) {
         grow(h, areaOf(ob.r)*GROW); ob.swallowed = true;
+        devouredArea += areaOf(ob.r);
         // Spawn popup for player only
         if (h.isPlayer) {
           const pts = Math.max(1, Math.round(ob.r));
@@ -136,12 +137,21 @@ function update(dt) {
 
   // Solo mode: skip hole-vs-hole eating, check for devour target
   if (!battleMode) {
-    // Check if player reached the devour target
-    const devourPct = (1 - objects.length/levelTotal)*100;
-    if (devourPct >= targetPct) {
-      soloWon = true;
-      endMatch();
-      return;
+    const devourPct = levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0;
+    if (!soloWon && devourPct >= targetPct) {
+      soloWon = true; winDelay = 2.5;
+      const flash = document.getElementById('levelUp');
+      if (flash) {
+        flash.textContent = 'LEVEL CLEARED! 🎉';
+        flash.classList.remove('hidden');
+        flash.style.animation = 'none';
+        void flash.offsetWidth;
+        flash.style.animation = 'levelUpPop 2.5s ease-out forwards';
+      }
+    }
+    if (soloWon) {
+      winDelay -= dt;
+      if (winDelay <= 0) { endMatch(); return; }
     }
   } else {
     // Battle mode: Holes eat smaller holes — eliminated for good.

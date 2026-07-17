@@ -18,6 +18,9 @@ function init(level) {
   buildGround(level);
   level.populate(addProp);
   levelTotal = objects.length;
+  levelTotalArea = 0;
+  for (const o of objects) levelTotalArea += areaOf(o.r);
+  devouredArea = 0; winDelay = 0;
   player = makeHole(level.playerSpawn[0], level.playerSpawn[1], 'You', true);
   holes.push(player);
 
@@ -250,7 +253,7 @@ function endMatch() {
       persistSave();
     } else {
       // Solo loss (time ran out)
-      const devourPct = Math.round((1 - objects.length/levelTotal)*100);
+      const devourPct = Math.round(levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0);
       reward = Math.max(3, Math.round(player.r/4));
       resultText = `Time's up — devoured ${devourPct}% (goal ${Math.round(targetPct)}%)`;
       btnText = 'Retry level';

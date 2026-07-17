@@ -120,3 +120,4 @@ let dragging = false;
 let battleMode = false;           // true if this is a bot battle level
 let targetPct = 50;               // solo win condition: % of props to devour
 let soloWon = false;              // tracks if solo level was won (devoured target %)
+let levelTotalArea = 0, devouredArea = 0, winDelay = 0;
