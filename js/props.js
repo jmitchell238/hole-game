@@ -289,6 +289,16 @@ function optimizeProp(root) {
 function thawProp(mesh) {
   if (!mesh) return;
   mesh.matrixAutoUpdate = true;
+  // Force full LOD so the detailed mesh (not the box proxy) falls in
+  if (mesh.userData && mesh.userData.full) {
+    const full = mesh.userData.full;
+    const proxy = mesh.userData.proxy;
+    mesh.userData.lod = 0;
+    if (!full.parent) mesh.add(full);
+    full.visible = true;
+    full.matrixAutoUpdate = true;
+    if (proxy) proxy.visible = false;
+  }
   mesh.traverse(o => { if (o.isMesh) o.matrixAutoUpdate = true; });
 }
 
@@ -653,19 +663,23 @@ function addProp(name, x, z, rotY) {
     console.warn('[props] unknown prop', name);
     return;
   }
-  let mesh = BUILDERS[name]();
-  mesh.position.set(x, 0, z);
-  mesh.rotation.y = rotY !== undefined ? rotY : rand(0, Math.PI*2);
+  let full = BUILDERS[name]();
+  const rot = rotY !== undefined ? rotY : rand(0, Math.PI * 2);
   // Shadows only on big casters, and only when enabled
   if (SAVE.shadows && SHADOW_CASTERS.has(name))
-    mesh.traverse(m => { if (m.isMesh) m.castShadow = true; });
-  // Merge multi-mesh groups → far fewer GPU draw calls; freeze static transforms
-  mesh = optimizeProp(mesh);
+    full.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  // Merge multi-mesh groups → far fewer GPU draw calls
+  full = optimizeProp(full);
+  // Dual LOD: detailed mesh + cheap silhouette proxy (no pop-in when far)
+  let mesh = full;
+  if (typeof attachPropLod === 'function') {
+    mesh = attachPropLod(full, name, s);
+  }
   mesh.position.set(x, 0, z);
-  mesh.rotation.y = rotY !== undefined ? rotY : mesh.rotation.y;
+  mesh.rotation.y = rot;
   mesh.updateMatrix();
   mesh.matrixAutoUpdate = false;
   scene.add(mesh);
   objects.push({ mesh, x, z, r: s.r, h: s.h, vy: 0,
-    falling: false, hole: null, dead: false });
+    falling: false, hole: null, dead: false, name: name });
 }

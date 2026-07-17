@@ -21,16 +21,19 @@
     render_ms_p95_r60: 28,
     render_ms_p95_r130: 32,
     render_ms_p95_r250: 36,
-    streamed_props_r12_max: 900,
-    streamed_props_r60_max: 1100,
-    streamed_props_r130_max: 1300,
-    streamed_props_r250_max: 1500,
-    scene_meshes_r12_max: 2200,
-    scene_meshes_r60_max: 2600,
-    scene_meshes_r130_max: 3000,
-    scene_meshes_r250_max: 3400,
-    streamed_frac_late_max: 0.55,
-    streamed_growth_r60_to_r250_max: 2.5,
+    streamed_props_r12_max: 2500,
+    streamed_props_r60_max: 2500,
+    streamed_props_r130_max: 2500,
+    streamed_props_r250_max: 2500,
+    full_lod_r12_max: 900,
+    full_lod_r60_max: 700,
+    full_lod_r130_max: 500,
+    full_lod_r250_max: 400,
+    scene_meshes_r12_max: 2800,
+    scene_meshes_r60_max: 3200,
+    scene_meshes_r130_max: 3600,
+    scene_meshes_r250_max: 4000,
+    streamed_frac_late_max: 0.35,
   };
 
   let fails = 0;
@@ -127,20 +130,19 @@
 
       metric('update_ms_p95_r' + r + '_' + levelId, percentile(upd, 0.95), BUDGETS.update_ms_p95, 'max');
       metric('render_ms_p95_r' + r + '_' + levelId, percentile(ren, 0.95), BUDGETS['render_ms_p95_r' + r], 'max');
-      metric('streamed_props_r' + r + '_' + levelId, streamed, BUDGETS['streamed_props_r' + r + '_max'], 'max');
+      const fullLod = typeof countFullLodProps === 'function' ? countFullLodProps() : -1;
+      metric('streamed_props_r' + r + '_' + levelId, streamed, null); // almost all stay parented now
+      metric('full_lod_r' + r + '_' + levelId, fullLod, BUDGETS['full_lod_r' + r + '_max'], 'max');
       metric('scene_meshes_r' + r + '_' + levelId, meshes, BUDGETS['scene_meshes_r' + r + '_max'], 'max');
       metric('view_radius_r' + r + '_' + levelId, typeof viewRadius === 'function' ? viewRadius() : -1, null);
     }
 
-    // Late game must stay a bounded fraction of the full prop list
-    if (objects.length > 0) {
-      metric('streamed_frac_late_' + levelId, streamedAt[250] / objects.length,
+    // Full-detail count must stay bounded late game (proxies handle the rest)
+    if (objects.length > 0 && streamedAt[250] != null) {
+      // re-read full lod at r=250 via last stream pass
+      const fullLate = typeof countFullLodProps === 'function' ? countFullLodProps() : 0;
+      metric('full_lod_frac_late_' + levelId, fullLate / objects.length,
         BUDGETS.streamed_frac_late_max, 'max');
-    }
-    // Growth from mid to late should be modest (view radius caps)
-    if (streamedAt[60] > 0) {
-      metric('streamed_growth_r60_to_r250_' + levelId, streamedAt[250] / streamedAt[60],
-        BUDGETS.streamed_growth_r60_to_r250_max, 'max');
     }
 
     running = false;

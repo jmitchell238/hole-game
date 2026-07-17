@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.33.002';
+const GAME_VERSION = '2.34.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -49,12 +49,12 @@ const GFX = {
   propSeg: IS_LOW_END ? 4 : 8,
   useGltf: !IS_TOUCH,
   mergeProps: true,
-  streamProps: true,
-  // Spatial streaming knobs (js/spatial.js)
-  viewMaxRange: IS_LOW_END ? 480 : 1100,
-  viewMinPixels: IS_LOW_END ? 8 : 2.5,
+  streamProps: true, // now means "update LOD" (keeps silhouettes; no pop-in)
+  // LOD / visibility (js/spatial.js) — landmarks stay on-screen as cheap boxes
+  viewMaxRange: IS_LOW_END ? 900 : 1600,
+  viewMinPixels: IS_LOW_END ? 8 : 2.5, // legacy; LOD uses fullEnter/Exit px
   viewSmallRangeMul: IS_LOW_END ? 0.30 : 0.65,
-  fogCap: IS_LOW_END ? 900 : 2200,
+  fogCap: IS_LOW_END ? 1100 : 2400,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
