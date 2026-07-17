@@ -94,15 +94,17 @@ function applyGfxSettings() {
   }
 }
 
+let _hudTick = 0;
+let _fpsFrames = 0, _fpsLast = 0, _fps = 0;
+
 function render() {
   const height = 22.5 + player.r * 7.3, depth = 18.5 + player.r * 6.2;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
-  camPos.lerp(want, 0.06);
+  camPos.lerp(want, 0.08);
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
-  // Fog MUST reach past the camera→hole distance. A fixed low fogCap (used for
-  // "perf") fogged out the entire late-game view — including your own hole.
+  // Fog tracks camera distance (never clip the hole — see v2.35.002)
   const camToHole = Math.hypot(height, depth);
   const fogFar = Math.max(
     currentLevel.fog[1],
@@ -111,41 +113,55 @@ function render() {
     player.r * 8 + 400);
   scene.fog.far = fogFar;
   scene.fog.near = Math.min(fogFar * 0.35, camToHole * 0.55);
-  // Keep camera.far ahead of fog so geometry isn't clipped first
   if (camera.far < fogFar + 200) {
     camera.far = fogFar + 400;
     camera.updateProjectionMatrix();
   }
 
-  // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);
   sun.target.position.set(player.x, 0, player.z);
 
-  // Spin all hole decos.
   for (const h of holes) {
     if (h.deco)
-      h.deco.rotation.y = performance.now()/1000 * h.deco.userData.spin;
+      h.deco.rotation.y = performance.now() / 1000 * h.deco.userData.spin;
   }
 
-  // Off-screen props only (never hides the hole — holes aren't in objects[])
+  // Only thrash the scene graph when there are many props
   if (GFX.streamProps && typeof streamProps === 'function') streamProps(false);
 
   renderer.render(scene, camera);
 
-  // Name tags: project a point on the hole rim (y=0 was fine; use a bit above
-  // ground). Always show player tag even if NDC is tight.
-  const v = new THREE.Vector3();
-  for (const h of holes) {
-    v.set(h.x, Math.max(4, h.r * 0.05), h.z).project(camera);
-    if (v.z > 1 && !h.isPlayer) { h.tag.style.display = 'none'; continue; }
-    h.tag.style.display = 'block';
-    const sx = (v.x * 0.5 + 0.5) * FRAME.w;
-    const sy = (-v.y * 0.5 + 0.5) * FRAME.h;
-    h.tag.style.left = clamp(sx, 8, FRAME.w - 8) + 'px';
-    h.tag.style.top  = clamp(sy, 8, FRAME.h - 8) + 'px';
+  // FPS sample (debug)
+  _fpsFrames++;
+  const now = performance.now();
+  if (now - _fpsLast > 500) {
+    _fps = (_fpsFrames * 1000) / (now - _fpsLast);
+    _fpsFrames = 0; _fpsLast = now;
+    if (SAVE.debug) {
+      let el = document.getElementById('fpsChip');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'fpsChip';
+        el.style.cssText = 'position:absolute;top:8px;left:8px;z-index:50;padding:4px 8px;background:rgba(0,0,0,.55);color:#8f8;font:12px monospace;pointer-events:none;border-radius:6px';
+        document.getElementById('frame').appendChild(el);
+      }
+      el.textContent = _fps.toFixed(0) + ' fps · n=' + objects.length;
+    }
   }
 
-  // Update popups: project and age them
+  // HUD tags every other frame (DOM writes are costly on old iOS)
+  if (((_hudTick++) & 1) === 0) {
+    const v = new THREE.Vector3();
+    for (const h of holes) {
+      v.set(h.x, Math.max(4, h.r * 0.05), h.z).project(camera);
+      if (v.z > 1 && !h.isPlayer) { h.tag.style.display = 'none'; continue; }
+      h.tag.style.display = 'block';
+      h.tag.style.left = clamp((v.x * 0.5 + 0.5) * FRAME.w, 8, FRAME.w - 8) + 'px';
+      h.tag.style.top = clamp((-v.y * 0.5 + 0.5) * FRAME.h, 8, FRAME.h - 8) + 'px';
+    }
+  }
+
+  // Popups
   const popupsToRemove = [];
   document.querySelectorAll('.popup').forEach(popup => {
     if (!popup.userData) return;
@@ -158,8 +174,8 @@ function render() {
       const h = popup.userData.hole;
       const pv = new THREE.Vector3(h.x, 6, h.z).project(camera);
       if (pv.z <= 1) {
-        popup.style.left = (pv.x*0.5+0.5)*FRAME.w + 'px';
-        popup.style.top  = (-pv.y*0.5+0.5)*FRAME.h + 'px';
+        popup.style.left = (pv.x * 0.5 + 0.5) * FRAME.w + 'px';
+        popup.style.top = (-pv.y * 0.5 + 0.5) * FRAME.h + 'px';
       }
     }
   });

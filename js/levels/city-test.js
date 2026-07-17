@@ -54,6 +54,9 @@ const GEO = {
   light:  cylFeet(0.4, 0.5, 18, 4),
 };
 
+// Mark shared geos so destroyProp does not dispose them
+Object.keys(GEO).forEach(k => { GEO[k].userData = { shared: true }; });
+
 function one(geo, mat) {
   const m = new THREE.Mesh(geo, mat);
   m.frustumCulled = true;

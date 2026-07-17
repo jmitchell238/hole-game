@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.36.003';
+const GAME_VERSION = '2.37.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -36,23 +36,20 @@ const GFX = {
   largeTablet: IS_LARGE_TABLET,
   // Never use devicePixelRatio 2 on tablets — A9X cannot fill 2732×2048.
   pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
-  // Mild internal downscale on tablets (still looks sharp, saves A9X fill-rate).
-  // Hole.io-class games do this; we were too aggressive at 0.58 before.
-  renderScale: IS_LOW_END ? 0.75 : 1,
-  antialias: !IS_TOUCH,
-  shadowMapSize: IS_LOW_END ? 512 : 1024,
-  softShadows: !IS_TOUCH,
-  groundCurve: IS_LOW_END ? 12 : 20,
-  // 2k ground keeps roads/blocks readable on 12.9"
-  maxTexSize: IS_LOW_END ? 2048 : 4096,
-  anisotropy: IS_LOW_END ? 1 : 4,
-  propSeg: IS_LOW_END ? 6 : 8,
-  // KayKit is fine on desktop; tablets use lighter procedural meshes
+  // A9X fill-rate: internal res ~55% of CSS (stretched). Biggest non-JS win.
+  renderScale: IS_LOW_END ? 0.55 : 1,
+  antialias: false,
+  shadowMapSize: IS_LOW_END ? 256 : 1024,
+  softShadows: false,
+  groundCurve: 12, // unused when ground is static plane
+  // 1k ground texture — enough for blocks, cheap upload
+  maxTexSize: IS_LOW_END ? 1024 : 2048,
+  anisotropy: 1,
+  propSeg: IS_LOW_END ? 5 : 8,
   useGltf: !IS_TOUCH,
   mergeProps: true,
-  // Frustum parent/unparent only — full detail on screen, nothing off screen
+  // Frustum streaming only helps with hundreds of props (see spatial.js)
   streamProps: true,
-  // NOTE: do NOT hard-cap fog below camera distance — that fogged out late game
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

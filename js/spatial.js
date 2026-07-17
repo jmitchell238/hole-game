@@ -1,16 +1,14 @@
-// Camera frustum visibility for props — no box proxies, no ugly LOD.
+// Frustum visibility helper.
 //
-// Rules:
-//  • Off screen            → not parented (not rendered)
-//  • Almost on screen      → parented early (enter pad) so edges don't pop
-//  • On screen             → full original mesh
-//  • Eaten / destroyed     → destroyProp() removes + frees geometry
+// When there are few props (City Test ~100), parenting thrash costs MORE than
+// drawing them — Three.js already frustum-culls. Only stream when N is large.
 
 const SPATIAL = {
-  period: 2,
-  // World-unit pad outside the frustum ("almost on screen")
-  enterPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 100 : 80,
-  exitPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 45 : 35,
+  period: 3,
+  enterPad: 100,
+  exitPad: 45,
+  // Below this count, leave everything parented (no add/remove)
+  streamMinProps: 300,
 };
 
 const _frustum = new THREE.Frustum();
@@ -22,8 +20,7 @@ let _lastStreamInScene = 0;
 let _spatialReady = false;
 
 function cellKey(x, z) {
-  const C = 120;
-  return Math.floor(x / C) + ':' + Math.floor(z / C);
+  return Math.floor(x / 120) + ':' + Math.floor(z / 120);
 }
 
 function rebuildSpatialIndex() {
@@ -62,7 +59,6 @@ function sphereHitsPlanes(planes) {
   return true;
 }
 
-/** Permanent removal when a prop is eaten / finished falling. */
 function destroyProp(o) {
   if (!o) return;
   o.dead = true;
@@ -70,37 +66,39 @@ function destroyProp(o) {
   if (!root) return;
   if (root.parent) root.parent.remove(root);
   root.traverse(m => {
-    if (!m.isMesh) return;
-    if (m.geometry) m.geometry.dispose();
-    // Shared materials (MAT.*) — do not dispose
+    if (!m.isMesh || !m.geometry) return;
+    // Only dispose if geometry has no other users — shared geos (city-test) skip
+    if (!m.geometry.userData) m.geometry.userData = {};
+    if (m.geometry.userData.shared) return;
+    m.geometry.dispose();
   });
   o.mesh = null;
   o._streamed = false;
 }
 
-/**
- * Parent props that are on-screen or almost on-screen; unparent the rest.
- * Always full detail — no box silhouettes.
- */
 function streamProps(force) {
   if (!player || !camera || !objects.length) return 0;
   if (!_spatialReady) rebuildSpatialIndex();
+
+  // Small maps: do nothing. Native frustum culling is enough.
+  if (objects.length < SPATIAL.streamMinProps) {
+    _lastStreamInScene = objects.length;
+    return _lastStreamInScene;
+  }
 
   _streamTick++;
   if (!force && (_streamTick % SPATIAL.period) !== 0) return _lastStreamInScene;
 
   const enterPlanes = frustumPlanes(SPATIAL.enterPad);
   const exitPlanes = frustumPlanes(SPATIAL.exitPad);
-
   let inScene = 0;
+
   for (let i = 0; i < objects.length; i++) {
     const o = objects[i];
     if (o.dead || !o.mesh) continue;
 
-    // Falling into a hole: always draw
     if (o.falling) {
       if (!o.mesh.parent) scene.add(o.mesh);
-      o.mesh.visible = true;
       o._streamed = true;
       inScene++;
       continue;
@@ -110,18 +108,16 @@ function streamProps(force) {
     _sphere.center.set(o.x, (o.h || 8) * 0.4, o.z);
     _sphere.radius = rad;
 
-    const onScreen = o._streamed
+    const on = o._streamed
       ? sphereHitsPlanes(exitPlanes)
       : sphereHitsPlanes(enterPlanes);
 
-    if (!onScreen) {
+    if (!on) {
       if (o.mesh.parent) scene.remove(o.mesh);
       o._streamed = false;
       continue;
     }
-
     if (!o.mesh.parent) scene.add(o.mesh);
-    o.mesh.visible = true;
     o._streamed = true;
     inScene++;
   }
@@ -138,17 +134,11 @@ function countStreamedProps() {
   return n;
 }
 
-function countFullLodProps() {
-  // No LOD tiers anymore — everything on-screen is full detail
-  return _lastStreamInScene;
-}
+function countFullLodProps() { return countStreamedProps(); }
 
 function countSceneMeshes() {
   let n = 0;
-  if (scene.traverseVisible) {
-    scene.traverseVisible(o => { if (o.isMesh) n++; });
-  } else {
-    scene.traverse(o => { if (o.isMesh && o.visible) n++; });
-  }
+  if (scene.traverseVisible) scene.traverseVisible(o => { if (o.isMesh) n++; });
+  else scene.traverse(o => { if (o.isMesh && o.visible) n++; });
   return n;
 }
