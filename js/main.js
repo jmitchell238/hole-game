@@ -141,7 +141,7 @@ function render() {
       document.getElementById('frame').appendChild(el);
     }
     el.textContent = _fps.toFixed(0) + ' fps · n=' + objects.length +
-      (GFX.lowEnd ? ' · lo' : '');
+      ' · ' + (GFX.qualityLabel || '?');
   }
 
   // HUD tags every other frame (DOM writes are costly on old iOS)

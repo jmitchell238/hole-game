@@ -12,7 +12,7 @@ const renderer = new THREE.WebGLRenderer({
   // lowp is enough for our unlit materials on A9X
   precision: GFX.lowEnd ? 'mediump' : 'highp',
 });
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(GFX.pixelRatio);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = false;
 renderer.sortObjects = false; // skip transparent sort — big win with many meshes
