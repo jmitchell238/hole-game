@@ -1,6 +1,6 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
-const GAME_VERSION = 'v31';   // keep in sync with CACHE in sw.js
+const GAME_VERSION = 'v32';   // keep in sync with CACHE in sw.js
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;
@@ -28,6 +28,12 @@ const GFX = {
   // Max side for procedural canvas textures (levels request 4096)
   maxTexSize: IS_TOUCH ? 2048 : 4096,
   anisotropy: IS_TOUCH ? 1 : 4,
+  // Radial segments for cylinders/spheres/cones in props
+  propSeg: IS_TOUCH ? 5 : 8,
+  // Skip KayKit GLTF clones on tablets — multi-node graphs × 2k props kills FPS
+  useGltf: !IS_TOUCH,
+  // Merge multi-mesh props into fewer draw calls
+  mergeProps: true,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

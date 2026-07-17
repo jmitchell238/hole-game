@@ -80,6 +80,9 @@ function preloadModels() {
 // Returns a cloned, scaled mesh with origin at ground level (bbox.min.y === 0)
 // Returns null if the model hasn't loaded yet
 function modelClone(key, targetLen, axis) {
+  // Tablets: prefer simple procedural meshes (fewer nodes / draw calls)
+  if (typeof GFX !== 'undefined' && !GFX.useGltf) return null;
+
   const modelData = MODELS[key];
   if (!modelData) return null;
 
@@ -117,5 +120,6 @@ function modelClone(key, targetLen, axis) {
   return clone;
 }
 
-// Boot: preload all models at startup (long before first match)
-preloadModels();
+// Boot: preload all models at startup (long before first match).
+// Skip entirely on mobile — we never clone them there.
+if (typeof GFX === 'undefined' || GFX.useGltf) preloadModels();

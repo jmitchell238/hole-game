@@ -162,23 +162,162 @@ const APT_WALLS = ['#f0e8d8','#ece4d0','#e8dcc8'].map(c =>
 const APT_TOP = new THREE.MeshLambertMaterial({ color: 0x8f7864 });
 
 // ---- Prop mesh builders (origin at ground level) -------------------------------
+const PROP_SEG = () => (typeof GFX !== 'undefined' ? GFX.propSeg : 8);
+
 function part(geo, mat, x, y, z) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m;
 }
+
+// ---- Geometry merge / draw-call reduction ------------------------------------
+// Each prop used to be a Group of many Mesh children (person=5, tree=4, car=8…).
+// 2000 props × ~6 meshes ≈ 12k draw calls — death on iPad. Merge same-material
+// parts into one BufferGeometry so most props become 1–3 draw calls.
+function _mergeGeometries(geos) {
+  if (!geos.length) return null;
+  if (geos.length === 1) return geos[0];
+
+  const prepared = [];
+  let total = 0;
+  let hasNormal = true, hasUV = true;
+  for (let i = 0; i < geos.length; i++) {
+    let g = geos[i];
+    if (!g || !g.attributes || !g.attributes.position) continue;
+    if (g.index) g = g.toNonIndexed();
+    if (!g.attributes.normal) hasNormal = false;
+    if (!g.attributes.uv) hasUV = false;
+    prepared.push(g);
+    total += g.attributes.position.count;
+  }
+  if (!prepared.length) return null;
+  if (prepared.length === 1) return prepared[0];
+
+  const pos = new Float32Array(total * 3);
+  const nrm = hasNormal ? new Float32Array(total * 3) : null;
+  const uv = hasUV ? new Float32Array(total * 2) : null;
+  let vo = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const g = prepared[i];
+    const c = g.attributes.position.count;
+    pos.set(g.attributes.position.array, vo * 3);
+    if (nrm) nrm.set(g.attributes.normal.array, vo * 3);
+    if (uv) uv.set(g.attributes.uv.array, vo * 2);
+    vo += c;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  if (nrm) out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  else out.computeVertexNormals();
+  if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return out;
+}
+
+function optimizeProp(root) {
+  if (!root) return root;
+  // Bake world matrices under a temp parent so local offsets are correct
+  root.updateMatrixWorld(true);
+
+  const meshes = [];
+  root.traverse(o => { if (o.isMesh && o.geometry) meshes.push(o); });
+  if (meshes.length === 0) return root;
+
+  // Single mesh already — just freeze
+  if (meshes.length === 1 || !(typeof GFX === 'undefined' || GFX.mergeProps)) {
+    root.traverse(o => {
+      if (o.isMesh) {
+        o.frustumCulled = true;
+        o.matrixAutoUpdate = false;
+        o.updateMatrix();
+      }
+    });
+    root.matrixAutoUpdate = false;
+    root.updateMatrix();
+    return root;
+  }
+
+  const invRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMat = new Map();   // mat.uuid -> { mat, geos:[] }
+  const multi = [];          // multi-material meshes kept separate
+
+  for (let i = 0; i < meshes.length; i++) {
+    const mesh = meshes[i];
+    const baked = new THREE.Matrix4().multiplyMatrices(invRoot, mesh.matrixWorld);
+    let geo = mesh.geometry.clone();
+    geo.applyMatrix4(baked);
+
+    if (Array.isArray(mesh.material)) {
+      multi.push({ geo, mat: mesh.material, cast: mesh.castShadow });
+      continue;
+    }
+    const id = mesh.material.uuid;
+    if (!byMat.has(id)) byMat.set(id, { mat: mesh.material, geos: [], cast: false });
+    const entry = byMat.get(id);
+    entry.geos.push(geo);
+    entry.cast = entry.cast || mesh.castShadow;
+  }
+
+  const out = new THREE.Group();
+  byMat.forEach(entry => {
+    const merged = _mergeGeometries(entry.geos);
+    // Dispose intermediate clones (merged may reuse a single clone)
+    for (let i = 0; i < entry.geos.length; i++) {
+      if (entry.geos[i] !== merged) entry.geos[i].dispose();
+    }
+    if (!merged) return;
+    const m = new THREE.Mesh(merged, entry.mat);
+    m.castShadow = entry.cast;
+    m.frustumCulled = true;
+    m.matrixAutoUpdate = false;
+    m.updateMatrix();
+    out.add(m);
+  });
+  for (let i = 0; i < multi.length; i++) {
+    const { geo, mat, cast } = multi[i];
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = cast;
+    m.frustumCulled = true;
+    m.matrixAutoUpdate = false;
+    m.updateMatrix();
+    out.add(m);
+  }
+
+  out.matrixAutoUpdate = false;
+  out.updateMatrix();
+  return out;
+}
+
+// Re-enable matrix updates when a prop starts falling into a hole
+function thawProp(mesh) {
+  if (!mesh) return;
+  mesh.matrixAutoUpdate = true;
+  mesh.traverse(o => { if (o.isMesh) o.matrixAutoUpdate = true; });
+}
+
 const BUILDERS = {
   person() {
     const g = new THREE.Group();
     const shirt = new THREE.MeshLambertMaterial({ color: pick(SHIRT_COLORS) });
-    g.add(part(new THREE.CylinderGeometry(1.3, 1.5, 3.4, 8), MAT.jeans, 0, 1.7, 0));
-    g.add(part(new THREE.CylinderGeometry(1.7, 1.9, 3.8, 8), shirt, 0, 5.2, 0));
-    g.add(part(new THREE.SphereGeometry(1.6, 10, 8), MAT.skin, 0, 8.3, 0));
-    const hairM = part(new THREE.SphereGeometry(1.65, 10, 6), MAT.hair, 0, 8.6, -0.15);
+    const seg = PROP_SEG();
+    if (GFX.mobile) {
+      // 2 pieces instead of 4 — hundreds of people on every city block
+      g.add(part(new THREE.CylinderGeometry(1.5, 1.7, 5.5, seg), shirt, 0, 3.2, 0));
+      g.add(part(new THREE.SphereGeometry(1.6, seg, seg - 1), MAT.skin, 0, 7.0, 0));
+      return g;
+    }
+    g.add(part(new THREE.CylinderGeometry(1.3, 1.5, 3.4, seg), MAT.jeans, 0, 1.7, 0));
+    g.add(part(new THREE.CylinderGeometry(1.7, 1.9, 3.8, seg), shirt, 0, 5.2, 0));
+    g.add(part(new THREE.SphereGeometry(1.6, seg + 2, seg), MAT.skin, 0, 8.3, 0));
+    const hairM = part(new THREE.SphereGeometry(1.65, seg + 2, seg - 1), MAT.hair, 0, 8.6, -0.15);
     hairM.scale.y = 0.62; g.add(hairM);
     return g;
   },
   dog() {
     const g = new THREE.Group();
     const fur = new THREE.MeshLambertMaterial({ color: pick(DOG_COLORS) });
+    if (GFX.mobile) {
+      g.add(part(new THREE.BoxGeometry(5, 2.4, 2.2), fur, 0, 2.2, 0));
+      g.add(part(new THREE.BoxGeometry(2, 2, 1.9), fur, 3.1, 3.4, 0));
+      return g;
+    }
     g.add(part(new THREE.BoxGeometry(5, 2.4, 2.2), fur, 0, 2.6, 0));
     g.add(part(new THREE.BoxGeometry(2, 2, 1.9), fur, 3.1, 4, 0));
     g.add(part(new THREE.BoxGeometry(1, 0.9, 1.2), MAT.dark, 4.4, 3.6, 0));
@@ -232,8 +371,10 @@ const BUILDERS = {
   },
   cone() {
     const g = new THREE.Group();
-    g.add(part(new THREE.ConeGeometry(2.8, 8.5, 12), MAT.cone, 0, 4.6, 0));
-    g.add(part(new THREE.CylinderGeometry(2.1, 2.3, 1.4, 12), MAT.coneW, 0, 4.2, 0));
+    const seg = PROP_SEG();
+    g.add(part(new THREE.ConeGeometry(2.8, 8.5, seg + 2), MAT.cone, 0, 4.6, 0));
+    if (!GFX.mobile)
+      g.add(part(new THREE.CylinderGeometry(2.1, 2.3, 1.4, seg + 2), MAT.coneW, 0, 4.2, 0));
     g.add(part(new THREE.BoxGeometry(6.4, 0.8, 6.4), MAT.cone, 0, 0.4, 0));
     return g;
   },
@@ -291,32 +432,50 @@ const BUILDERS = {
     }
     // Fallback: original procedural bush
     const g = new THREE.Group();
-    g.add(part(new THREE.SphereGeometry(5.2, 9, 7), MAT.bush, 0, 3.8, 0));
-    g.add(part(new THREE.SphereGeometry(3.4, 9, 7), MAT.bush, 4, 2.6, 1.5));
-    g.add(part(new THREE.SphereGeometry(2.8, 9, 7), MAT.bush, -3.5, 2.4, -1.5));
+    const seg = PROP_SEG();
+    g.add(part(new THREE.SphereGeometry(5.2, seg, seg - 1), MAT.bush, 0, 3.8, 0));
+    if (!GFX.mobile) {
+      g.add(part(new THREE.SphereGeometry(3.4, seg, seg - 1), MAT.bush, 4, 2.6, 1.5));
+      g.add(part(new THREE.SphereGeometry(2.8, seg, seg - 1), MAT.bush, -3.5, 2.4, -1.5));
+    }
     return g;
   },
   fountain() {
     const g = new THREE.Group();
-    g.add(part(new THREE.CylinderGeometry(9, 9.5, 3, 16), MAT.stone, 0, 1.5, 0));
-    g.add(part(new THREE.CylinderGeometry(8, 8, 0.8, 16), MAT.glass, 0, 3.2, 0));
-    g.add(part(new THREE.CylinderGeometry(1.4, 1.8, 8, 8), MAT.stone, 0, 6, 0));
-    g.add(part(new THREE.CylinderGeometry(3.4, 3.8, 1.2, 12), MAT.stone, 0, 10, 0));
-    g.add(part(new THREE.SphereGeometry(1.8, 8, 6), MAT.glass, 0, 11, 0));
+    const seg = PROP_SEG();
+    g.add(part(new THREE.CylinderGeometry(9, 9.5, 3, seg + 2), MAT.stone, 0, 1.5, 0));
+    g.add(part(new THREE.CylinderGeometry(1.4, 1.8, 8, seg), MAT.stone, 0, 6, 0));
+    if (!GFX.mobile) {
+      g.add(part(new THREE.CylinderGeometry(8, 8, 0.8, seg + 2), MAT.glass, 0, 3.2, 0));
+      g.add(part(new THREE.CylinderGeometry(3.4, 3.8, 1.2, seg + 1), MAT.stone, 0, 10, 0));
+      g.add(part(new THREE.SphereGeometry(1.8, seg, seg - 1), MAT.glass, 0, 11, 0));
+    } else {
+      g.add(part(new THREE.SphereGeometry(2.2, seg, seg - 1), MAT.glass, 0, 10, 0));
+    }
     return g;
   },
   tree() {
     const g = new THREE.Group();
+    const seg = PROP_SEG();
+    if (GFX.mobile) {
+      // trunk + one canopy (was 4 meshes)
+      g.add(part(new THREE.CylinderGeometry(1.6, 2.4, 13, seg), MAT.trunk, 0, 6.5, 0));
+      if (Math.random() < 0.5)
+        g.add(part(new THREE.SphereGeometry(9, seg, seg - 1), MAT.leafA, 0, 18, 0));
+      else
+        g.add(part(new THREE.ConeGeometry(9, 22, seg), MAT.leafB, 0, 20, 0));
+      return g;
+    }
     if (Math.random() < 0.5) {                        // round leafy tree
-      g.add(part(new THREE.CylinderGeometry(1.6, 2.4, 13, 7), MAT.trunk, 0, 6.5, 0));
-      g.add(part(new THREE.SphereGeometry(8.5, 9, 7), MAT.leafA, 0, 18, 0));
-      g.add(part(new THREE.SphereGeometry(6, 9, 7), MAT.leafA, 3, 24, 2));
-      g.add(part(new THREE.SphereGeometry(5, 9, 7), MAT.leafA, -4, 22, -2));
+      g.add(part(new THREE.CylinderGeometry(1.6, 2.4, 13, seg), MAT.trunk, 0, 6.5, 0));
+      g.add(part(new THREE.SphereGeometry(8.5, seg + 1, seg), MAT.leafA, 0, 18, 0));
+      g.add(part(new THREE.SphereGeometry(6, seg + 1, seg), MAT.leafA, 3, 24, 2));
+      g.add(part(new THREE.SphereGeometry(5, seg + 1, seg), MAT.leafA, -4, 22, -2));
     } else {                                          // pine
-      g.add(part(new THREE.CylinderGeometry(1.5, 2.2, 12, 7), MAT.trunk, 0, 6, 0));
-      g.add(part(new THREE.ConeGeometry(9, 15, 9), MAT.leafB, 0, 17, 0));
-      g.add(part(new THREE.ConeGeometry(7, 13, 9), MAT.leafB, 0, 25, 0));
-      g.add(part(new THREE.ConeGeometry(4.5, 10, 9), MAT.leafB, 0, 32, 0));
+      g.add(part(new THREE.CylinderGeometry(1.5, 2.2, 12, seg), MAT.trunk, 0, 6, 0));
+      g.add(part(new THREE.ConeGeometry(9, 15, seg + 1), MAT.leafB, 0, 17, 0));
+      g.add(part(new THREE.ConeGeometry(7, 13, seg + 1), MAT.leafB, 0, 25, 0));
+      g.add(part(new THREE.ConeGeometry(4.5, 10, seg + 1), MAT.leafB, 0, 32, 0));
     }
     return g;
   },
@@ -332,18 +491,19 @@ const BUILDERS = {
       if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
       return modelCloned;
     }
-    // Fallback: original procedural car
+    // Fallback: original procedural car (mobile: body+cabin only, no wheels)
     const g = new THREE.Group();
     const body = new THREE.MeshLambertMaterial({ color: pick(CAR_COLORS) });
     g.add(part(new THREE.BoxGeometry(20, 5, 10), body, 0, 4.2, 0));
-    g.add(part(new THREE.BoxGeometry(20.4, 1.2, 10.4), MAT.dark, 0, 2, 0));
-    const cabin = part(new THREE.BoxGeometry(10, 4.2, 8.8), MAT.glass, -1, 8.2, 0);
-    g.add(cabin);
-    g.add(part(new THREE.BoxGeometry(10.4, 0.8, 9.2), body, -1, 10.2, 0));
-    const wheel = new THREE.CylinderGeometry(2, 2, 1.6, 12);
-    for (const [wx, wz] of [[-6,5],[6,5],[-6,-5],[6,-5]]) {
-      const w = part(wheel, MAT.tire, wx, 2, wz);
-      w.rotation.x = Math.PI/2; g.add(w);
+    g.add(part(new THREE.BoxGeometry(10, 4.2, 8.8), MAT.glass, -1, 8.2, 0));
+    if (!GFX.mobile) {
+      g.add(part(new THREE.BoxGeometry(20.4, 1.2, 10.4), MAT.dark, 0, 2, 0));
+      g.add(part(new THREE.BoxGeometry(10.4, 0.8, 9.2), body, -1, 10.2, 0));
+      const wheel = new THREE.CylinderGeometry(2, 2, 1.6, PROP_SEG());
+      for (const [wx, wz] of [[-6,5],[6,5],[-6,-5],[6,-5]]) {
+        const w = part(wheel, MAT.tire, wx, 2, wz);
+        w.rotation.x = Math.PI/2; g.add(w);
+      }
     }
     return g;
   },
@@ -352,11 +512,13 @@ const BUILDERS = {
     const paint = new THREE.MeshLambertMaterial({ color: 0xf0a830 });
     g.add(part(new THREE.BoxGeometry(34, 10, 11), paint, 0, 7.2, 0));
     g.add(part(new THREE.BoxGeometry(34.4, 3.2, 11.4), MAT.glass, 0, 9.6, 0));
-    g.add(part(new THREE.BoxGeometry(34.4, 1, 11.4), MAT.dark, 0, 2.6, 0));
-    const wheel = new THREE.CylinderGeometry(2.2, 2.2, 1.8, 12);
-    for (const [wx, wz] of [[-11,5.5],[11,5.5],[-11,-5.5],[11,-5.5]]) {
-      const w = part(wheel, MAT.tire, wx, 2.2, wz);
-      w.rotation.x = Math.PI/2; g.add(w);
+    if (!GFX.mobile) {
+      g.add(part(new THREE.BoxGeometry(34.4, 1, 11.4), MAT.dark, 0, 2.6, 0));
+      const wheel = new THREE.CylinderGeometry(2.2, 2.2, 1.8, PROP_SEG());
+      for (const [wx, wz] of [[-11,5.5],[11,5.5],[-11,-5.5],[11,-5.5]]) {
+        const w = part(wheel, MAT.tire, wx, 2.2, wz);
+        w.rotation.x = Math.PI/2; g.add(w);
+      }
     }
     return g;
   },
@@ -384,6 +546,13 @@ const BUILDERS = {
   house() {
     const g = new THREE.Group();
     const v = pick(HOUSE_WALLS);
+    // Mobile: single material body (1 draw call) instead of 6 face materials
+    if (GFX.mobile) {
+      g.add(part(new THREE.BoxGeometry(34, 28, 34), v.front, 0, 14, 0));
+      g.add(part(new THREE.BoxGeometry(38, 10, 38),
+        new THREE.MeshLambertMaterial({ color: pick(ROOF_COLORS) }), 0, 32, 0));
+      return g;
+    }
     const box = new THREE.Mesh(new THREE.BoxGeometry(34, 28, 34),
       [v.side, v.side, v.plain, v.plain, v.front, v.side]);
     box.position.y = 14; g.add(box);
@@ -484,16 +653,18 @@ function addProp(name, x, z, rotY) {
     console.warn('[props] unknown prop', name);
     return;
   }
-  const mesh = BUILDERS[name]();
+  let mesh = BUILDERS[name]();
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY !== undefined ? rotY : rand(0, Math.PI*2);
-  // Skip shadow setup entirely when shadows are off (saves traverse cost)
+  // Shadows only on big casters, and only when enabled
   if (SAVE.shadows && SHADOW_CASTERS.has(name))
-    mesh.traverse(m => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = true; } });
-  else
-    mesh.traverse(m => { if (m.isMesh) m.frustumCulled = true; });
-  // Matrix auto-update stays on (props move when falling); static props could
-  // freeze matrices but falling starts mid-match so leave default.
+    mesh.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  // Merge multi-mesh groups → far fewer GPU draw calls; freeze static transforms
+  mesh = optimizeProp(mesh);
+  mesh.position.set(x, 0, z);
+  mesh.rotation.y = rotY !== undefined ? rotY : mesh.rotation.y;
+  mesh.updateMatrix();
+  mesh.matrixAutoUpdate = false;
   scene.add(mesh);
   objects.push({ mesh, x, z, r: s.r, h: s.h, vy: 0,
     falling: false, hole: null, dead: false });

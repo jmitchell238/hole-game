@@ -119,7 +119,9 @@ function update(dt) {
     for (const h of holes) {
       if (canEat(h, ob.r) &&
           dist(h.x, h.z, ob.x, ob.z) + ob.r <= h.r) {  // fully inside the mouth
-        ob.falling = true; ob.hole = h; ob.vy = 0; break;
+        ob.falling = true; ob.hole = h; ob.vy = 0;
+        if (typeof thawProp === 'function') thawProp(ob.mesh);
+        break;
       }
     }
   }
