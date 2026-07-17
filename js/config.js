@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.35.001';
+const GAME_VERSION = '2.35.002';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -52,7 +52,7 @@ const GFX = {
   mergeProps: true,
   // Frustum parent/unparent only — full detail on screen, nothing off screen
   streamProps: true,
-  fogCap: IS_LOW_END ? 1600 : 2800,
+  // NOTE: do NOT hard-cap fog below camera distance — that fogged out late game
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level

@@ -101,9 +101,21 @@ function render() {
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
-  const fogCap = GFX.fogCap || 2200;
-  scene.fog.far = Math.min(fogCap, Math.max(currentLevel.fog[1], height * 2.2));
-  scene.fog.near = scene.fog.far * 0.38;
+  // Fog MUST reach past the camera→hole distance. A fixed low fogCap (used for
+  // "perf") fogged out the entire late-game view — including your own hole.
+  const camToHole = Math.hypot(height, depth);
+  const fogFar = Math.max(
+    currentLevel.fog[1],
+    camToHole * 2.2,
+    height * 2.4,
+    player.r * 8 + 400);
+  scene.fog.far = fogFar;
+  scene.fog.near = Math.min(fogFar * 0.35, camToHole * 0.55);
+  // Keep camera.far ahead of fog so geometry isn't clipped first
+  if (camera.far < fogFar + 200) {
+    camera.far = fogFar + 400;
+    camera.updateProjectionMatrix();
+  }
 
   // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);
@@ -115,18 +127,22 @@ function render() {
       h.deco.rotation.y = performance.now()/1000 * h.deco.userData.spin;
   }
 
-  // Detach off-screen / sub-pixel props before drawing (biggest late-game win)
+  // Off-screen props only (never hides the hole — holes aren't in objects[])
   if (GFX.streamProps && typeof streamProps === 'function') streamProps(false);
 
   renderer.render(scene, camera);
 
+  // Name tags: project a point on the hole rim (y=0 was fine; use a bit above
+  // ground). Always show player tag even if NDC is tight.
   const v = new THREE.Vector3();
   for (const h of holes) {
-    v.set(h.x, 6, h.z).project(camera);
-    if (v.z > 1) { h.tag.style.display = 'none'; continue; }
+    v.set(h.x, Math.max(4, h.r * 0.05), h.z).project(camera);
+    if (v.z > 1 && !h.isPlayer) { h.tag.style.display = 'none'; continue; }
     h.tag.style.display = 'block';
-    h.tag.style.left = (v.x*0.5+0.5)*FRAME.w + 'px';
-    h.tag.style.top  = (-v.y*0.5+0.5)*FRAME.h + 'px';
+    const sx = (v.x * 0.5 + 0.5) * FRAME.w;
+    const sy = (-v.y * 0.5 + 0.5) * FRAME.h;
+    h.tag.style.left = clamp(sx, 8, FRAME.w - 8) + 'px';
+    h.tag.style.top  = clamp(sy, 8, FRAME.h - 8) + 'px';
   }
 
   // Update popups: project and age them

@@ -171,6 +171,9 @@ function refreshGround(force) {
   shape.lineTo(W, -W);
   shape.lineTo(W, W);
   shape.lineTo(-W, W);
+  // Never cut out the entire ground — leave a ring so ShapeGeometry stays valid
+  // and the map doesn't vanish when the hole is huge.
+  const maxCut = W * 0.88;
   for (const h of holes) {
     let r = h.r;
     for (const o of holes) {
@@ -179,6 +182,7 @@ function refreshGround(force) {
       const d = dist(h.x, h.z, o.x, o.z);
       if (d < o.r + r) r = Math.min(r, Math.max(0, d - o.r));
     }
+    r = Math.min(r, maxCut);
     if (r < 0.5) continue;
     const p = new THREE.Path();
     // Shape is in XY; mesh is rotated -90° around X → shape(x,y) → world(x, -y) as z
