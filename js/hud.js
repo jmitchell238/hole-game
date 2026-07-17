@@ -177,6 +177,17 @@ shadowsChk.onchange = () => {
   persistSave();
   if (typeof applyGfxSettings === 'function') applyGfxSettings();
 };
+
+const fpsChk = document.getElementById('fpsChk');
+if (fpsChk) {
+  fpsChk.checked = !!SAVE.showFps;
+  fpsChk.onchange = () => {
+    SAVE.showFps = fpsChk.checked;
+    persistSave();
+    if (typeof setFpsOverlay === 'function') setFpsOverlay(SAVE.showFps);
+  };
+}
+
 const controlsSel = document.getElementById('controlsSel');
 controlsSel.value = SAVE.controls;
 controlsSel.onchange = () => {

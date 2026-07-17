@@ -14,6 +14,7 @@ let SAVE = {
   design: null,              // equipped hole design (null = plain hole)
   lastCheckin: '',           // YYYY-M-D of the last daily check-in claim
   shadows: _defaultShadows,  // off by default on iPad/phone (huge FPS win)
+  showFps: false,            // Settings → Show FPS overlay
   controls: 'touch',         // 'touch' or 'keyboard'
   debug: false,
   campaignLevel: 1,          // current campaign level (1+)

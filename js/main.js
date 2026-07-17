@@ -94,6 +94,26 @@ function applyGfxSettings() {
 let _hudTick = 0;
 let _fpsFrames = 0, _fpsLast = 0, _fps = 0;
 
+/** Show/hide the FPS chip. Called from Settings and the render loop. */
+function setFpsOverlay(on, fpsValue) {
+  let el = document.getElementById('fpsChip');
+  if (!on) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fpsChip';
+    el.style.cssText = 'position:absolute;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));z-index:50;padding:6px 10px;background:rgba(0,0,0,.65);color:#8f8;font:bold 14px ui-monospace,monospace;pointer-events:none;border-radius:8px;letter-spacing:.3px';
+    document.getElementById('frame').appendChild(el);
+  }
+  el.style.display = 'block';
+  const fps = fpsValue != null ? fpsValue : _fps;
+  el.textContent = (fps ? fps.toFixed(0) : '—') + ' fps · n=' +
+    (typeof objects !== 'undefined' ? objects.length : 0) +
+    ' · ' + (GFX.qualityLabel || '?');
+}
+
 function render() {
   const height = 22.5 + player.r * 7.3, depth = 18.5 + player.r * 6.2;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
@@ -127,21 +147,15 @@ function render() {
 
   renderer.render(scene, camera);
 
-  // Always show FPS on tablet so we can stop guessing
-  _fpsFrames++;
-  const now = performance.now();
-  if (now - _fpsLast > 400) {
-    _fps = (_fpsFrames * 1000) / (now - _fpsLast);
-    _fpsFrames = 0; _fpsLast = now;
-    let el = document.getElementById('fpsChip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'fpsChip';
-      el.style.cssText = 'position:absolute;top:8px;left:8px;z-index:50;padding:4px 8px;background:rgba(0,0,0,.6);color:#8f8;font:bold 13px monospace;pointer-events:none;border-radius:6px';
-      document.getElementById('frame').appendChild(el);
+  // FPS overlay (Settings → Show FPS)
+  if (SAVE.showFps) {
+    _fpsFrames++;
+    const now = performance.now();
+    if (now - _fpsLast > 400) {
+      _fps = (_fpsFrames * 1000) / (now - _fpsLast);
+      _fpsFrames = 0; _fpsLast = now;
+      setFpsOverlay(true, _fps);
     }
-    el.textContent = _fps.toFixed(0) + ' fps · n=' + objects.length +
-      ' · ' + (GFX.qualityLabel || '?');
   }
 
   // HUD tags every other frame (DOM writes are costly on old iOS)
@@ -337,6 +351,23 @@ updateGold();
 updateLevelInfo();
 document.getElementById('versionTag').textContent = 'VoidRush ' + GAME_VERSION_LABEL;
 document.getElementById('versionSetting').textContent = 'VoidRush ' + GAME_VERSION_LABEL;
+
+// Restore FPS overlay preference on boot
+if (SAVE.showFps && typeof setFpsOverlay === 'function') setFpsOverlay(true, 0);
+
+// Keep FPS updating on the menu too (not only mid-match)
+(function menuFpsLoop() {
+  if (SAVE.showFps && !running) {
+    _fpsFrames++;
+    const now = performance.now();
+    if (now - _fpsLast > 400) {
+      _fps = (_fpsFrames * 1000) / Math.max(1, now - _fpsLast);
+      _fpsFrames = 0; _fpsLast = now;
+      setFpsOverlay(true, _fps);
+    }
+  }
+  requestAnimationFrame(menuFpsLoop);
+})();
 
 // Debug unlock via URL parameter
 if (location.search.includes('debug=1')) {
