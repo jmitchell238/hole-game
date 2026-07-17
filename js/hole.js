@@ -143,9 +143,10 @@ function canEat(hole, r) { return hole.r >= r * EAT_RATIO; }
 
 /** Max hole radius for the current map — prevents crashes when r > world. */
 function maxHoleRadius() {
-  if (!currentLevel || !currentLevel.world) return 220;
-  // Leave margin so clamp(min,max) stays valid and Shape/scale stay sane
-  return Math.min(currentLevel.world * 0.40, GFX.lowEnd ? 160 : 260);
+  if (!currentLevel || !currentLevel.world) return 180;
+  // Cap earlier so late-game camera never sees the whole map as dots.
+  // Leave margin so clamp(min,max) stays valid and Shape/scale stay sane.
+  return Math.min(currentLevel.world * 0.34, GFX.lowEnd ? 140 : 180);
 }
 
 function grow(h, addArea) {

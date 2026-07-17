@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.40.002';
+const GAME_VERSION = '2.40.003';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -76,11 +76,11 @@ const GFX = {
   // denser maps still thin clutter; parks/sidewalks also hard-cut in levels
   clutterKeep: IS_LOW_END ? 0.12 : 1,
   hudHz: IS_LOW_END ? 8 : 30,
-  // Keep hole ~constant on-screen fraction as r grows. Freezing the camera
-  // with caps while r kept growing made the hole fill the screen (nausea) and
-  // then crash past world bounds. streamProps handles late-game draw cost.
-  camHeightMul: IS_LOW_END ? 5.8 : 7.3,
-  camDepthMul: IS_LOW_END ? 4.9 : 6.2,
+  // Hole ~28-32% of screen height at all sizes (distance ∝ r).
+  // 7.3/6.2 made late-game a postage-stamp map floating in empty sky —
+  // buildings became sub-pixel dots and the city looked barren.
+  camHeightMul: IS_LOW_END ? 4.6 : 4.9,
+  camDepthMul: IS_LOW_END ? 3.9 : 4.15,
   camHeightCap: 99999,
   camDepthCap: 99999,
   // label for FPS chip

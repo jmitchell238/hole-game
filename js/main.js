@@ -115,25 +115,33 @@ function setFpsOverlay(on, fpsValue) {
 }
 
 function render() {
-  // Camera zoom: softer on iPad so late game doesn't paint the whole map
-  let height = 22.5 + player.r * (GFX.camHeightMul || 7.3);
-  let depth = 18.5 + player.r * (GFX.camDepthMul || 6.2);
+  // Camera: distance ∝ r so hole stays ~constant on-screen fraction (~30%).
+  // Look slightly past the hole so more ground fills the frame (less empty sky).
+  let height = 18 + player.r * (GFX.camHeightMul || 4.9);
+  let depth = 15 + player.r * (GFX.camDepthMul || 4.15);
   if (GFX.camHeightCap) height = Math.min(height, GFX.camHeightCap);
   if (GFX.camDepthCap) depth = Math.min(depth, GFX.camDepthCap);
   const want = new THREE.Vector3(player.x, height, player.z + depth);
   camPos.lerp(want, GFX.lowEnd ? 0.12 : 0.08);
   camera.position.copy(camPos);
-  camera.lookAt(player.x, 0, player.z);
+  // Aim a bit in front of the hole so the upper half of the frame is ground, not void
+  const lookAhead = player.r * 0.35;
+  camera.lookAt(player.x, 0, player.z - lookAhead * 0.15);
 
-  // Fog is expensive per pixel — only on desktop. Low-end: no fog.
+  // Fog: keep a soft horizon. Old formula scaled fogFar with camera height so
+  // late-game fog never kicked in and the map stayed a sharp floating waffle.
   if (scene.fog) {
     const camToHole = Math.hypot(height, depth);
-    const fogFar = Math.max(
-      currentLevel.fog[1], camToHole * 2.2, height * 2.4, player.r * 8 + 400);
+    const W = (currentLevel && currentLevel.world) || 600;
+    // Fade starts just past mid-world, fully fogged before the far edge reads as a hard cut
+    const fogFar = Math.min(
+      Math.max(W * 1.35, camToHole * 1.15 + player.r * 2.5),
+      W * 2.4);
+    const fogNear = Math.max(player.r * 2.5, fogFar * 0.28);
     scene.fog.far = fogFar;
-    scene.fog.near = Math.min(fogFar * 0.35, camToHole * 0.55);
-    if (camera.far < fogFar + 200) {
-      camera.far = fogFar + 400;
+    scene.fog.near = Math.min(fogNear, fogFar * 0.55);
+    if (camera.far < fogFar + 400) {
+      camera.far = fogFar + 800;
       camera.updateProjectionMatrix();
     }
   }

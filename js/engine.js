@@ -95,6 +95,7 @@ function canvasTex(w, h, draw) {
 
 // ---- Static ground (never rebuilt) ------------------------------------------
 let ground = null;
+let groundUnderlay = null;
 let skirt = null;
 
 function buildSkirt(level) {
@@ -107,7 +108,7 @@ function buildSkirt(level) {
   if (GFX.lowEnd) { skirt = null; return; }
   const W = level.world, D = HOLE_DEPTH + 12;
   const mat = new THREE.MeshBasicMaterial({
-    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: false,
+    color: level.skirtColor || 0x5a4a3a, side: THREE.DoubleSide, fog: true,
   });
   skirt = new THREE.Group();
   for (const [x, z, ry] of [[0, -W, 0], [0, W, 0], [-W, 0, Math.PI / 2], [W, 0, Math.PI / 2]]) {
@@ -127,6 +128,12 @@ function buildGround(level) {
     ground.material.dispose();
     if (ground.geometry) ground.geometry.dispose();
   }
+  if (groundUnderlay) {
+    scene.remove(groundUnderlay);
+    groundUnderlay.material.dispose();
+    groundUnderlay.geometry.dispose();
+    groundUnderlay = null;
+  }
 
   const gtex = level.createGroundTexture();
   gtex.repeat.set(1, 1);
@@ -135,14 +142,32 @@ function buildGround(level) {
   gtex.wrapT = THREE.ClampToEdgeWrapping;
 
   const W = level.world;
+  // Fog ON so the far edge of the map dissolves into the sky instead of
+  // reading as a hard floating waffle (was fog:false — always sharp).
   ground = new THREE.Mesh(
     new THREE.PlaneGeometry(2 * W, 2 * W, 1, 1),
-    new THREE.MeshBasicMaterial({ map: gtex, fog: false }));
+    new THREE.MeshBasicMaterial({ map: gtex, fog: true }));
   ground.rotation.x = -Math.PI / 2;
   ground.matrixAutoUpdate = false;
   ground.updateMatrix();
   ground.frustumCulled = false;
   scene.add(ground);
+
+  // Huge plain underlay past the map edge — kills the "island in void" look
+  // when the camera is high. Same hue as skirt / soil, fogs into sky.
+  const underColor = level.skirtColor != null ? level.skirtColor
+    : (level.soil && level.soil[1] ? parseInt(String(level.soil[1]).replace('#', ''), 16) : 0x3a4450);
+  const UW = Math.max(W * 6, 4000);
+  groundUnderlay = new THREE.Mesh(
+    new THREE.PlaneGeometry(UW, UW, 1, 1),
+    new THREE.MeshBasicMaterial({ color: underColor, fog: true }));
+  groundUnderlay.rotation.x = -Math.PI / 2;
+  groundUnderlay.position.y = -0.4;
+  groundUnderlay.matrixAutoUpdate = false;
+  groundUnderlay.updateMatrix();
+  groundUnderlay.frustumCulled = false;
+  scene.add(groundUnderlay);
+
   refreshGround(true);
 }
 
