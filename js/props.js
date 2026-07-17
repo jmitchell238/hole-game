@@ -195,6 +195,15 @@ const BUILDERS = {
     return g;
   },
   hydrant() {
+    // Try to use the firehydrant model (scale height to ≈ 6)
+    const modelCloned = modelClone('firehydrant', 6, 'y');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural hydrant
     const g = new THREE.Group();
     g.add(part(new THREE.CylinderGeometry(2.2, 2.5, 1, 10), MAT.metal, 0, 0.5, 0));
     g.add(part(new THREE.CylinderGeometry(1.6, 1.9, 4, 10), MAT.red, 0, 3, 0));
@@ -205,6 +214,17 @@ const BUILDERS = {
     return g;
   },
   trashcan() {
+    // Try to use a random trash model (trash_A/trash_B/dumpster, scale height to ≈ 6)
+    const trashModels = ['trash_A', 'trash_B', 'dumpster'];
+    const modelKey = pick(trashModels);
+    const modelCloned = modelClone(modelKey, 6, 'y');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural trashcan
     const g = new THREE.Group();
     g.add(part(new THREE.CylinderGeometry(2.2, 1.9, 5.5, 10), MAT.dark, 0, 2.75, 0));
     g.add(part(new THREE.CylinderGeometry(2.4, 2.4, 0.8, 10), MAT.metal, 0, 5.9, 0));
@@ -218,6 +238,15 @@ const BUILDERS = {
     return g;
   },
   streetlight() {
+    // Try to use the streetlight model (scale height to ≈ 24)
+    const modelCloned = modelClone('streetlight', 24, 'y');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural streetlight
     const g = new THREE.Group();
     g.add(part(new THREE.CylinderGeometry(1.2, 1.4, 1, 8), MAT.dark, 0, 0.5, 0));
     g.add(part(new THREE.CylinderGeometry(0.6, 0.8, 24, 8), MAT.dark, 0, 12, 0));
@@ -227,6 +256,15 @@ const BUILDERS = {
     return g;
   },
   bench() {
+    // Try to use the bench model (scale length to ≈ 11)
+    const modelCloned = modelClone('bench', 11, 'max_xz');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural bench
     const g = new THREE.Group();
     g.add(part(new THREE.BoxGeometry(11, 1, 3.5), MAT.wood, 0, 2.5, 0));
     g.add(part(new THREE.BoxGeometry(11, 3.5, 1), MAT.wood, 0, 4.2, -1.6));
@@ -243,6 +281,15 @@ const BUILDERS = {
     return g;
   },
   bush() {
+    // Try to use the bush model (scale width to ≈ 10)
+    const modelCloned = modelClone('bush', 10, 'max_xz');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural bush
     const g = new THREE.Group();
     g.add(part(new THREE.SphereGeometry(5.2, 9, 7), MAT.bush, 0, 3.8, 0));
     g.add(part(new THREE.SphereGeometry(3.4, 9, 7), MAT.bush, 4, 2.6, 1.5));
@@ -274,6 +321,18 @@ const BUILDERS = {
     return g;
   },
   car() {
+    // Try to use a random car model (scale to horizontal len ≈ 20)
+    const carModels = ['car_sedan', 'car_taxi', 'car_police', 'car_hatchback', 'car_stationwagon'];
+    const modelKey = pick(carModels);
+    // For cars, use max of x and z as the footprint length
+    const modelCloned = modelClone(modelKey, 20, 'max_xz');
+    if (modelCloned) {
+      // Ensure it's grounded (bbox.min.y === 0)
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural car
     const g = new THREE.Group();
     const body = new THREE.MeshLambertMaterial({ color: pick(CAR_COLORS) });
     g.add(part(new THREE.BoxGeometry(20, 5, 10), body, 0, 4.2, 0));
@@ -302,6 +361,17 @@ const BUILDERS = {
     return g;
   },
   shop() {
+    // Try to use a random shop model (A/B/C, scale footprint width to ≈ 26)
+    const shopModels = ['building_A', 'building_B', 'building_C'];
+    const modelKey = pick(shopModels);
+    const modelCloned = modelClone(modelKey, 26, 'max_xz');
+    if (modelCloned) {
+      // Ensure it's grounded
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural shop
     const g = new THREE.Group();
     const v = pick(SHOP_WALLS);
     const box = new THREE.Mesh(new THREE.BoxGeometry(26, 20, 26),
@@ -342,6 +412,26 @@ const BUILDERS = {
     return g;
   },
   apartment() {
+    // Try to use a random apartment model (D..H, scale height to ≈ 60, cap horz to ~40)
+    const aptModels = ['building_D', 'building_E', 'building_F', 'building_G', 'building_H'];
+    const modelKey = pick(aptModels);
+    // First scale to height 60
+    const modelCloned = modelClone(modelKey, 60, 'y');
+    if (modelCloned) {
+      // Check if horizontal exceeds cap and scale down if needed
+      const box = new THREE.Box3().setFromObject(modelCloned);
+      const horzSize = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+      if (horzSize > 40) {
+        const horzScale = 40 / horzSize;
+        modelCloned.scale.x *= horzScale;
+        modelCloned.scale.z *= horzScale;
+      }
+      // Ensure it's grounded
+      const finalBox = new THREE.Box3().setFromObject(modelCloned);
+      if (finalBox.min.y !== 0) modelCloned.position.y -= finalBox.min.y;
+      return modelCloned;
+    }
+    // Fallback: original procedural apartment
     const g = new THREE.Group();
     const wall = pick(APT_WALLS);
     const box = new THREE.Mesh(new THREE.BoxGeometry(40, 60, 40),
