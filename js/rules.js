@@ -8,11 +8,16 @@ function botThink(bot) {
       bot.tx = bot.x+(bot.x-o.x); bot.tz = bot.z+(bot.z-o.z); return;
     }
   }
-  // Prefer props over hunting holes
+  // Prefer props over hunting holes — only search nearby (not whole map)
   let best = null, bd = 1e9;
+  const huntR = 220 + bot.r * 2;
+  const huntR2 = huntR * huntR;
   for (const ob of objects) {
-    if (ob.falling || !canEat(bot, ob.r)) continue;
-    const dd = dist(bot.x, bot.z, ob.x, ob.z);
+    if (ob.falling || ob.dead || !canEat(bot, ob.r)) continue;
+    const dx = ob.x - bot.x, dz = ob.z - bot.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > huntR2 || d2 >= bd * bd) continue;
+    const dd = Math.sqrt(d2);
     if (dd < bd) { bd = dd; best = ob; }
   }
   if (best) { bot.tx = best.x; bot.tz = best.z; return; }

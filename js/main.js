@@ -47,6 +47,12 @@ function init(level) {
 
   refreshGround(true);
   camPos.set(player.x, 200, player.z + 160);   // snap camera to the new spawn
+  // Index props and only keep nearby / large-enough ones parented to the scene
+  if (typeof rebuildSpatialIndex === 'function') rebuildSpatialIndex();
+  // Snap camera pose so streaming uses a sensible view radius
+  camera.position.copy(camPos);
+  camera.lookAt(player.x, 0, player.z);
+  if (typeof streamProps === 'function' && GFX.streamProps) streamProps(true);
 
   // Timer: solo 240s, battle always 150s (fixed pacing, no level override)
   const isSolo = !battleMode;
@@ -108,9 +114,11 @@ function render() {
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
-  // Dynamic fog: adjust far plane based on camera height
-  scene.fog.far = Math.max(currentLevel.fog[1], height * 2.4);
-  scene.fog.near = scene.fog.far * 0.38;
+  // Dynamic fog: grow with the camera but hard-cap so the GPU isn't asked to
+  // shade the whole map late-game. Streaming already detaches far meshes.
+  const fogCap = GFX.mobile ? 1400 : 2200;
+  scene.fog.far = Math.min(fogCap, Math.max(currentLevel.fog[1], height * 2.0));
+  scene.fog.near = scene.fog.far * 0.4;
 
   // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);
@@ -121,6 +129,9 @@ function render() {
     if (h.deco)
       h.deco.rotation.y = performance.now()/1000 * h.deco.userData.spin;
   }
+
+  // Detach off-screen / sub-pixel props before drawing (biggest late-game win)
+  if (GFX.streamProps && typeof streamProps === 'function') streamProps(false);
 
   renderer.render(scene, camera);
 

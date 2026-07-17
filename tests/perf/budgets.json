@@ -1,0 +1,20 @@
+{
+  "_comment": "Perf budgets for VoidRush. Timings are headless Chrome (not iPad) — use for regression. scene_* counts are device-agnostic and the primary quality bar for late-game lag.",
+  "init_city_ms": 8000,
+  "init_island_ms": 12000,
+  "update_ms_p95": 12,
+  "render_ms_p95_r12": 25,
+  "render_ms_p95_r60": 28,
+  "render_ms_p95_r130": 32,
+  "render_ms_p95_r250": 36,
+  "streamed_props_r12_max": 900,
+  "streamed_props_r60_max": 1100,
+  "streamed_props_r130_max": 1300,
+  "streamed_props_r250_max": 1500,
+  "scene_meshes_r12_max": 2200,
+  "scene_meshes_r60_max": 2600,
+  "scene_meshes_r130_max": 3000,
+  "scene_meshes_r250_max": 3400,
+  "streamed_frac_late_max": 0.55,
+  "streamed_growth_r60_to_r250_max": 2.5
+}
