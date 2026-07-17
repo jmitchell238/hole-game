@@ -89,31 +89,15 @@ function spawnPopup(h, pts) {
 
 // ---- Camera + render -----------------------------------------------------------
 let camPos = new THREE.Vector3(0, 200, 160);
-let _cullFrame = 0;
 
 function applyGfxSettings() {
   renderer.shadowMap.enabled = !!SAVE.shadows;
   sun.castShadow = !!SAVE.shadows;
   if (ground) ground.receiveShadow = !!SAVE.shadows;
-  // Propagate castShadow cheaply: only big props ever cast (see SHADOW_CASTERS)
   if (!SAVE.shadows) {
     for (const o of objects) {
       o.mesh.traverse(m => { if (m.isMesh) m.castShadow = false; });
     }
-  }
-}
-
-// Hide props outside the fog envelope so the GPU doesn't draw 2k groups.
-function cullDistantProps() {
-  if (!player || !scene.fog) return;
-  const lim = scene.fog.far * GFX.cullFogMul;
-  const lim2 = lim * lim;
-  const px = player.x, pz = player.z;
-  for (let i = 0; i < objects.length; i++) {
-    const o = objects[i];
-    if (o.falling || o.dead) { o.mesh.visible = true; continue; }
-    const dx = o.x - px, dz = o.z - pz;
-    o.mesh.visible = (dx*dx + dz*dz) < lim2;
   }
 }
 
@@ -125,25 +109,18 @@ function render() {
   camera.lookAt(player.x, 0, player.z);
 
   // Dynamic fog: adjust far plane based on camera height
-  // Slightly tighter fog on mobile → fewer distant draws + earlier cull
-  const fogScale = GFX.mobile ? 0.85 : 1;
-  scene.fog.far = Math.max(currentLevel.fog[1] * fogScale, height * 2.4 * fogScale);
+  scene.fog.far = Math.max(currentLevel.fog[1], height * 2.4);
   scene.fog.near = scene.fog.far * 0.38;
 
   // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);
   sun.target.position.set(player.x, 0, player.z);
-  // Shadow camera must track the target or the map is stale
-  if (SAVE.shadows) sun.shadow.camera.updateProjectionMatrix();
 
   // Spin all hole decos.
   for (const h of holes) {
     if (h.deco)
       h.deco.rotation.y = performance.now()/1000 * h.deco.userData.spin;
   }
-
-  // Distance cull every other frame (cheap CPU, big GPU win on dense maps)
-  if (((_cullFrame++) & 1) === 0) cullDistantProps();
 
   renderer.render(scene, camera);
 

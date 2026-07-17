@@ -3,8 +3,10 @@
 
 // The pit inside every hole: soil at the rim fading to black, with a
 // black floor far below so falling objects sink out of sight naturally.
-const PIT_GEO = new THREE.CylinderGeometry(1, 1, HOLE_DEPTH, 48, 1, true);
-const CAP_GEO = new THREE.CircleGeometry(1, 48);
+// Fewer segments on tablets — same look at game camera distances.
+const HOLE_SEG = (typeof GFX !== 'undefined' && GFX.mobile) ? 24 : 40;
+const PIT_GEO = new THREE.CylinderGeometry(1, 1, HOLE_DEPTH, HOLE_SEG, 1, true);
+const CAP_GEO = new THREE.CircleGeometry(1, HOLE_SEG);
 const CAP_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, fog: false });
 let PIT_MAT = null;
 
@@ -72,7 +74,7 @@ function makeHole(x, z, name, isPlayer) {
   const cap = new THREE.Mesh(CAP_GEO, CAP_MAT);
   cap.rotation.x = -Math.PI/2; cap.position.set(x, -HOLE_DEPTH + 1, z);
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.88, 1.06, 48),
+    new THREE.RingGeometry(0.88, 1.06, HOLE_SEG),
     new THREE.MeshBasicMaterial({ color: ringColor }));
   // Each ring gets its own height so overlapping rings never z-fight/flicker.
   ring.rotation.x = -Math.PI/2;
@@ -83,7 +85,7 @@ function makeHole(x, z, name, isPlayer) {
   let ghost = null;
   if (isPlayer) {
     ghost = new THREE.Mesh(
-      new THREE.RingGeometry(0.88, 1.06, 48),
+      new THREE.RingGeometry(0.88, 1.06, HOLE_SEG),
       new THREE.MeshBasicMaterial({
         color: ringColor,
         transparent: true,
@@ -159,8 +161,8 @@ function syncHole(h) {
     if (h.ring.geometry) h.ring.geometry.dispose();
     if (h.ghost && h.ghost.geometry) h.ghost.geometry.dispose();
     const band = 0.12 * clamp(30 / h.r, 0.3, 1);
-    h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, 48);
-    if (h.ghost) h.ghost.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, 48);
+    h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, HOLE_SEG);
+    if (h.ghost) h.ghost.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, HOLE_SEG);
   }
 
   if (h.deco) {

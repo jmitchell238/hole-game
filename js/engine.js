@@ -1,10 +1,12 @@
 // Renderer, scene, camera, lights, and the ground mesh (with holes punched out).
 // Sky / fog / light colors come from the active level via applyEnvironment().
+//
+// Ground cutouts are done in the fragment shader (discard) so we NEVER rebuild
+// ShapeGeometry every frame — that was the main iPad hitch/glitch source.
 
 const renderer = new THREE.WebGLRenderer({
   antialias: GFX.antialias,
   powerPreference: 'high-performance',
-  // Prefer no alpha compositing cost over the page background
   alpha: false,
 });
 renderer.setPixelRatio(GFX.pixelRatio);
@@ -43,7 +45,6 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 1.0);
 sun.castShadow = true;
 sun.shadow.mapSize.set(GFX.shadowMapSize, GFX.shadowMapSize);
-// Tighter shadow frustum = sharper + cheaper on tablets
 const shadowSpan = GFX.mobile ? 280 : 400;
 Object.assign(sun.shadow.camera,
   { left: -shadowSpan, right: shadowSpan, top: shadowSpan, bottom: -shadowSpan,
@@ -61,21 +62,19 @@ function applyEnvironment(level) {
   sun.color.set(level.sunColor);
 }
 
-// ---- Procedural textures (no downloads — everything is generated) -------------
-// On tablets, downscale huge 4k canvases so the GPU isn't fed 16MB+ textures.
+// ---- Procedural textures ------------------------------------------------------
 function canvasTex(w, h, draw) {
   const max = GFX.maxTexSize;
   const tw = Math.min(w, max), th = Math.min(h, max);
   const c = document.createElement('canvas');
   c.width = tw; c.height = th;
   const ctx = c.getContext('2d');
-  if (tw !== w || th !== h) {
-    ctx.scale(tw / w, th / h);
-  }
+  if (tw !== w || th !== h) ctx.scale(tw / w, th / h);
   draw(ctx, w, h);
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
   t.anisotropy = GFX.anisotropy;
+  // Mipmaps help distant ground; cheap enough after we cap texture size
   t.generateMipmaps = true;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   t.magFilter = THREE.LinearFilter;
@@ -83,20 +82,67 @@ function canvasTex(w, h, draw) {
 }
 
 // ---- Ground -------------------------------------------------------------------
+// Max simultaneous holes the shader can cut (player + bots)
+const GROUND_MAX_HOLES = 8;
 let ground = null;
 let skirt = null;
-// Cache of last hole pose used to build geometry — skip rebuilds when idle.
-let _groundSig = '';
-let _groundForce = true;
+// Flat array: [x0,z0,r0, pad, x1,z1,r1, pad, ...]
+const _holeUniformData = [];
+for (let i = 0; i < GROUND_MAX_HOLES; i++)
+  _holeUniformData.push(new THREE.Vector4(0, 0, 0, 0));
 
-// Side walls under the map edge, as deep as the pits go, so the world reads
-// as a solid slab — without them the pit tube shows as a floating black blob
-// when a hole sits near the edge.
+function makeGroundMaterial(map) {
+  const mat = new THREE.MeshLambertMaterial({ map });
+  mat.userData.holeCount = 0;
+  mat.userData.holes = _holeUniformData;
+  mat.onBeforeCompile = (shader) => {
+    // Seed from whatever refreshGround last wrote (shader may compile mid-match)
+    shader.uniforms.holeCount = { value: mat.userData.holeCount || 0 };
+    shader.uniforms.holes = { value: _holeUniformData };
+    mat.userData.shader = shader;
+
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vGroundWorld;')
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\nvGroundWorld = (modelMatrix * vec4( position, 1.0 )).xyz;');
+
+    // Fallback if begin_vertex hook missed
+    if (shader.vertexShader.indexOf('vGroundWorld =') < 0) {
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <project_vertex>',
+        'vGroundWorld = (modelMatrix * vec4( transformed, 1.0 )).xyz;\n#include <project_vertex>');
+    }
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform int holeCount;\nuniform vec4 holes[' +
+          GROUND_MAX_HOLES + '];\nvarying vec3 vGroundWorld;')
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+        for (int i = 0; i < ${GROUND_MAX_HOLES}; i++) {
+          if (i >= holeCount) break;
+          vec2 d = vGroundWorld.xz - holes[i].xy;
+          if (dot(d, d) < holes[i].z * holes[i].z) discard;
+        }`);
+  };
+  // Force a unique program so our hooks aren't shared with other Lamberts
+  mat.customProgramCacheKey = function () { return 'voidrush-ground-holes-v2'; };
+  // Ensure the material recompiles with our hooks
+  mat.needsUpdate = true;
+  return mat;
+}
+
+// Side walls under the map edge
 function buildSkirt(level) {
   if (skirt) {
     scene.remove(skirt);
     skirt.children.forEach(m => m.geometry.dispose());
-    skirt.children[0].material.dispose();
+    if (skirt.children[0]) skirt.children[0].material.dispose();
   }
   const W = level.world, D = HOLE_DEPTH + 12;
   const mat = new THREE.MeshLambertMaterial(
@@ -123,69 +169,40 @@ function buildGround(level) {
   const gtex = level.createGroundTexture();
   gtex.repeat.set(1/(2*level.world), 1/(2*level.world));
   gtex.offset.set(0.5, 0.5);
-  ground = new THREE.Mesh(new THREE.BufferGeometry(),
-    new THREE.MeshLambertMaterial({ map: gtex }));
+
+  // Static plane — geometry never rebuilt during play
+  // Slightly more segments on desktop for nicer fog shading; mobile stays cheap
+  const segs = GFX.mobile ? 1 : 1;
+  const geo = new THREE.PlaneGeometry(2 * level.world, 2 * level.world, segs, segs);
+  ground = new THREE.Mesh(geo, makeGroundMaterial(gtex));
   ground.rotation.x = -Math.PI/2;
-  ground.receiveShadow = !!SAVE.shadows;
-  // Ground is huge; never cast shadows from it
+  ground.receiveShadow = !!(typeof SAVE !== 'undefined' && SAVE.shadows);
   ground.castShadow = false;
+  // Ensure ground draws before transparent tags etc.
+  ground.renderOrder = -1;
   scene.add(ground);
-  _groundForce = true;
-  _groundSig = '';
-  refreshGround();
+  refreshGround(true);
 }
 
-// Quantized signature of every hole's pose. Rebuild only when it changes.
-function groundSignature() {
-  // Coarser quantization on mobile → fewer rebuilds while moving
-  const mq = GFX.groundMoveEps;
-  const rq = GFX.groundRadiusEps;
-  let s = holes.length + '|';
-  for (let i = 0; i < holes.length; i++) {
-    const h = holes[i];
-    s += (h.x / mq | 0) + ',' + (h.z / mq | 0) + ',' + (h.r / rq | 0) + ';';
-  }
-  return s;
-}
-
-// Rebuild the ground with a real hole punched out for every mouth,
-// so you can look down inside the pits.
-// Call with force=true after match start / hole removed; otherwise only
-// rebuilds when a hole has moved/grown past the quantization threshold.
-function refreshGround(force) {
-  if (!ground || !currentLevel) return;
-  if (!force && !_groundForce) {
-    const sig = groundSignature();
-    if (sig === _groundSig) return;
-    _groundSig = sig;
-  } else {
-    _groundForce = false;
-    _groundSig = groundSignature();
-  }
-
-  const W = currentLevel.world;
-  const shape = new THREE.Shape();
-  shape.moveTo(-W, -W);
-  shape.lineTo(W, -W);
-  shape.lineTo(W, W);
-  shape.lineTo(-W, W);
-  for (const h of holes) {
-    // While a bigger hole rolls over this one, shrink this one's cutout so
-    // the two circles stay tangent — intersecting cutouts break the ground
-    // triangulation and flicker.
-    let r = h.r;
-    for (const o of holes) {
-      if (o === h) continue;
-      if (!(o.r > h.r || (o.r === h.r && holes.indexOf(o) < holes.indexOf(h)))) continue;
-      const d = dist(h.x, h.z, o.x, o.z);
-      if (d < o.r + r) r = Math.min(r, Math.max(0, d - o.r));
+// Push live hole positions into the ground shader. O(holes) — not O(world).
+// `force` kept for call-site compatibility; always cheap so ignored.
+function refreshGround(/* force */) {
+  if (!ground || !ground.material) return;
+  const mat = ground.material;
+  const n = Math.min(holes.length, GROUND_MAX_HOLES);
+  for (let i = 0; i < GROUND_MAX_HOLES; i++) {
+    if (i < n) {
+      const h = holes[i];
+      // Slightly oversized cutout so the pit rim never shows a ground seam
+      _holeUniformData[i].set(h.x, h.z, h.r * 1.02, 0);
+    } else {
+      _holeUniformData[i].set(0, 0, 0, 0);
     }
-    if (r < 0.5) continue;
-    const p = new THREE.Path();
-    p.absarc(h.x, -h.z, r, 0, Math.PI*2, true);
-    shape.holes.push(p);
   }
-  const geo = new THREE.ShapeGeometry(shape, GFX.groundCurve);
-  if (ground.geometry) ground.geometry.dispose();
-  ground.geometry = geo;
+  mat.userData.holeCount = n;
+  const shader = mat.userData.shader;
+  if (shader) {
+    shader.uniforms.holeCount.value = n;
+    // holes array is the same Vector4 refs — GPU already sees updates
+  }
 }

@@ -1,6 +1,6 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
-const GAME_VERSION = 'v30';   // keep in sync with CACHE in sw.js
+const GAME_VERSION = 'v31';   // keep in sync with CACHE in sw.js
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;
@@ -28,11 +28,6 @@ const GFX = {
   // Max side for procedural canvas textures (levels request 4096)
   maxTexSize: IS_TOUCH ? 2048 : 4096,
   anisotropy: IS_TOUCH ? 1 : 4,
-  // How far (world units) a hole must move before we re-punch the ground
-  groundMoveEps: IS_TOUCH ? 1.2 : 0.6,
-  groundRadiusEps: 0.15,
-  // Hide prop meshes beyond this multiple of fog.far (distance cull)
-  cullFogMul: 0.92,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
