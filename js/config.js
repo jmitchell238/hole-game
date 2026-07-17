@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.39.003';
+const GAME_VERSION = '2.40.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -39,9 +39,13 @@ const IS_LARGE_TABLET = IS_IPAD &&
 // Performance mode ONLY for iPads (gen-1 Pro is the laggy target). Phones stay sharp.
 const IS_LOW_END = IS_IPAD;
 
+// Props safe to thin on iPad (buildings/landmarks kept). Winter was drowning
+// the GPU with snowpines/gifts/people as the camera zoomed out.
 const CLUTTER_PROPS = {
   person: 1, dog: 1, bush: 1, mailbox: 1, trashcan: 1, cone: 1, hydrant: 1,
-  bench: 1, fence: 1, stest_person: 1, stest_light: 1,
+  bench: 1, fence: 1, streetlight: 1, car: 1, bus: 1, tree: 1,
+  snowpine: 1, snowman: 1, giftbox: 1, sled: 1,
+  stest_person: 1, stest_light: 1, stest_car: 1, stest_tree: 1,
 };
 
 const _DPR = window.devicePixelRatio || 1;
@@ -67,9 +71,15 @@ const GFX = {
   propSeg: IS_LOW_END ? 4 : 8,
   useGltf: !IS_TOUCH && !IS_IPHONE, // desktop can use GLTF; phones/tablets procedural
   mergeProps: true,
-  streamProps: false,
-  clutterKeep: IS_LOW_END ? 0.28 : 1,
+  // Stream when map is dense so zoomed-out late game isn't "draw everything"
+  streamProps: IS_LOW_END,
+  clutterKeep: IS_LOW_END ? 0.18 : 1,
   hudHz: IS_LOW_END ? 8 : 30,
+  // Softer camera pullback on iPad — less world on screen = less nausea/lag
+  camHeightMul: IS_LOW_END ? 4.2 : 7.3,
+  camDepthMul: IS_LOW_END ? 3.6 : 6.2,
+  camHeightCap: IS_LOW_END ? 520 : 99999,
+  camDepthCap: IS_LOW_END ? 440 : 99999,
   // label for FPS chip
   qualityLabel: IS_LOW_END ? 'ipad-perf' : (IS_IPHONE ? 'iphone' : (IS_TOUCH ? 'mobile' : 'desktop')),
 };

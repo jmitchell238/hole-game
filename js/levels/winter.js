@@ -52,7 +52,10 @@ function pickBotSpawns(px, pz) {
 }
 
 function generate() {
-  GRID_N = 5 + ((Math.random()*2)|0);            // 5–6 blocks per side
+  // Smaller grid on tablet — Winter was ~2500+ props and melted A9X late-game
+  GRID_N = (typeof GFX !== 'undefined' && GFX.lowEnd)
+    ? 4
+    : 5 + ((Math.random() * 2) | 0);
   BLOCK  = Math.round(rand(215, 265));
   ROAD   = Math.round(rand(42, 62));
   P      = BLOCK + ROAD;
@@ -295,30 +298,38 @@ function populate(addProp) {
     const type = blockPlan[i][j];
     const inBlock = (dx, dz) => [cx + dx, cz + dz];
 
-    // Every block: streetlights on corners + mid-edges, sidewalk life.
+    // Sidewalk life — lighter on tablet (clutterKeep also thins these)
+    const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
     for (const [sx, sz] of [[-1,-1],[1,-1],[-1,1],[1,1]])
       addProp('streetlight', cx + sx*(BLOCK/2 - 8), cz + sz*(BLOCK/2 - 8),
         Math.atan2(-sz, -sx));
-    addProp('streetlight', cx, cz - (BLOCK/2 - 8), Math.PI/2);
-    addProp('streetlight', cx, cz + (BLOCK/2 - 8), -Math.PI/2);
-    addProp('trashcan', cx + rand(-90, 90), cz - (BLOCK/2 - 8));
-    addProp('trashcan', cx + (BLOCK/2 - 8), cz + rand(-90, 90));
-    addProp('trashcan', cx - (BLOCK/2 - 8), cz + rand(-90, 90));
-    addProp('mailbox', cx + rand(-90, 90), cz + (BLOCK/2 - 8));
-    for (const t of [-1, 1]) {                       // sidewalk trees -> snowpines
-      addProp('snowpine', cx + t*BLOCK/4, cz - (BLOCK/2 - 8));
-      addProp('snowpine', cx + t*BLOCK/4, cz + (BLOCK/2 - 8));
+    if (!lite) {
+      addProp('streetlight', cx, cz - (BLOCK/2 - 8), Math.PI/2);
+      addProp('streetlight', cx, cz + (BLOCK/2 - 8), -Math.PI/2);
     }
-    for (let k = 0; k < 8; k++) {
+    addProp('trashcan', cx + rand(-90, 90), cz - (BLOCK/2 - 8));
+    if (!lite) {
+      addProp('trashcan', cx + (BLOCK/2 - 8), cz + rand(-90, 90));
+      addProp('trashcan', cx - (BLOCK/2 - 8), cz + rand(-90, 90));
+    }
+    addProp('mailbox', cx + rand(-90, 90), cz + (BLOCK/2 - 8));
+    for (const t of [-1, 1]) {
+      addProp('snowpine', cx + t*BLOCK/4, cz - (BLOCK/2 - 8));
+      if (!lite) addProp('snowpine', cx + t*BLOCK/4, cz + (BLOCK/2 - 8));
+    }
+    const peopleN = lite ? 3 : 8;
+    for (let k = 0; k < peopleN; k++) {
       const edge = Math.random() < 0.5 ? -1 : 1;
       if (Math.random() < 0.5)
         addProp('person', cx + rand(-100, 100), cz + edge*(BLOCK/2 - 8));
       else
         addProp('person', cx + edge*(BLOCK/2 - 8), cz + rand(-100, 100));
     }
-    for (let k = 0; k < 2; k++) {
-      const edge = Math.random() < 0.5 ? -1 : 1;
-      addProp('dog', cx + rand(-95, 95), cz + edge*(BLOCK/2 - 8));
+    if (!lite) {
+      for (let k = 0; k < 2; k++) {
+        const edge = Math.random() < 0.5 ? -1 : 1;
+        addProp('dog', cx + rand(-95, 95), cz + edge*(BLOCK/2 - 8));
+      }
     }
 
     if (type === 'downtown') {
@@ -371,22 +382,23 @@ function populate(addProp) {
       addProp('snowpine', ...inBlock(96, 0));
       addProp('snowpine', ...inBlock(-33, 0));
       addProp('snowpine', ...inBlock(33, 0));
-      // Snowmen + yard gifts
-      for (let k = 0; k < 4; k++)
+      const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
+      for (let k = 0; k < (lite ? 1 : 4); k++)
         addProp('snowman', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 60)));
-      for (let k = 0; k < 5; k++)
+      for (let k = 0; k < (lite ? 1 : 5); k++)
         addProp('giftbox', ...inBlock(rand(-90, 90), pick([-1,1])*rand(10, 70)));
-      // Sleds scattered
-      for (let k = 0; k < 3; k++)
+      for (let k = 0; k < (lite ? 1 : 3); k++)
         addProp('sled', ...inBlock(rand(-95, 95), pick([-1,1])*rand(30, 80)));
-      for (let k = 0; k < 10; k++)
+      for (let k = 0; k < (lite ? 3 : 10); k++)
         addProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));
       addProp('mailbox', ...inBlock(rand(-90, 90), -100));
-      addProp('mailbox', ...inBlock(rand(-90, 90), 100));
-      for (let k = 0; k < 9; k++)
+      if (!lite) addProp('mailbox', ...inBlock(rand(-90, 90), 100));
+      for (let k = 0; k < (lite ? 3 : 9); k++)
         addProp('person', ...inBlock(rand(-95, 95), rand(-95, 95)));
-      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
-      addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      if (!lite) {
+        addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+        addProp('dog', ...inBlock(rand(-95, 95), rand(-95, 95)));
+      }
     } else {  // park — the spawn block stays clear for the player
       const isSpawn = (i === spawnI && j === spawnJ);
       if (!isSpawn) {
@@ -451,8 +463,9 @@ function populate(addProp) {
       }
     }
 
-    // Cars parallel-parked along this block's curbs.
-    for (let k = 0; k < 5; k++) {
+    const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
+    const parkN = lite ? 2 : 5;
+    for (let k = 0; k < parkN; k++) {
       const side = (Math.random()*4)|0, off = BLOCK/2 + 9, along = rand(-95, 95);
       if (side === 0)      addProp('car', cx + along, cz - off, 0);
       else if (side === 1) addProp('car', cx + along, cz + off, 0);
@@ -462,16 +475,18 @@ function populate(addProp) {
   }
 
   // Traffic on the streets themselves.
+  const lite = typeof GFX !== 'undefined' && GFX.lowEnd;
   for (let k = 0; k <= GRID_N; k++) {
     const rc = -WORLD + k*P + ROAD/2;
-    for (let n = 0; n < 12; n++) {
+    const trafficN = lite ? 4 : 12;
+    for (let n = 0; n < trafficN; n++) {
       const along = rand(-WORLD + 60, WORLD - 60);
       const lane = (Math.random() < 0.5 ? -1 : 1) * 12;
-      const bus = Math.random() < 0.15;
+      const bus = !lite && Math.random() < 0.15;
       if (Math.random() < 0.5) addProp(bus ? 'bus' : 'car', along, rc + lane, 0);
       else                     addProp(bus ? 'bus' : 'car', rc + lane, along, Math.PI/2);
     }
-    if (k < GRID_N) {
+    if (!lite && k < GRID_N) {
       addProp('cone', rand(-WORLD+60, WORLD-60), rc, 0);
       addProp('cone', rc, rand(-WORLD+60, WORLD-60), 0);
     }

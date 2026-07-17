@@ -140,13 +140,25 @@ function removeHole(h) {
 }
 
 function canEat(hole, r) { return hole.r >= r * EAT_RATIO; }
+
+/** Max hole radius for the current map — prevents crashes when r > world. */
+function maxHoleRadius() {
+  if (!currentLevel || !currentLevel.world) return 220;
+  // Leave margin so clamp(min,max) stays valid and Shape/scale stay sane
+  return Math.min(currentLevel.world * 0.40, GFX.lowEnd ? 160 : 260);
+}
+
 function grow(h, addArea) {
-  if (battleMode) addArea *= Math.max(0.25, 1 - h.r/240);
-  h.r = Math.sqrt((areaOf(h.r)+addArea)/Math.PI);
+  if (battleMode) addArea *= Math.max(0.25, 1 - h.r / 240);
+  h.r = Math.sqrt((areaOf(h.r) + addArea) / Math.PI);
+  const cap = maxHoleRadius();
+  if (h.r > cap) h.r = cap;
 }
 
 // Push the pit/cap/ring/mouth meshes to the hole's current position and size.
 function syncHole(h) {
+  const cap = maxHoleRadius();
+  if (h.r > cap) h.r = cap;
   const s = h.r;
   h.wall.scale.set(s, 1, s);
   h.cap.scale.set(s, s, s);
@@ -164,33 +176,40 @@ function syncHole(h) {
     h.ghost.position.x = h.x; h.ghost.position.z = h.z;
   }
 
-  // Rebuild ring geometry when sizeLevel changes
+  // Rebuild ring geometry when sizeLevel changes (not every frame)
   const currentLv = sizeLevel(h.r);
   if (currentLv !== h._ringLv) {
     h._ringLv = currentLv;
     if (h.ring.geometry) h.ring.geometry.dispose();
     if (h.ghost && h.ghost.geometry) h.ghost.geometry.dispose();
-    const band = 0.12 * clamp(30 / h.r, 0.3, 1);
-    h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, HOLE_SEG);
-    if (h.ghost) h.ghost.geometry = new THREE.RingGeometry(1 - band, 1 + band*0.35, HOLE_SEG);
+    const band = 0.12 * clamp(30 / Math.max(h.r, 1), 0.3, 1);
+    h.ring.geometry = new THREE.RingGeometry(1 - band, 1 + band * 0.35, HOLE_SEG);
+    if (h.ghost) h.ghost.geometry = new THREE.RingGeometry(1 - band, 1 + band * 0.35, HOLE_SEG);
   }
 
   if (h.deco) {
-    h.deco.scale.set(s, s, s);
-    const decoY = h.deco.userData.flat ? 0.35 : 0;  // Image skins at constant height; 3D designs scale with hole
+    // Cap cosmetic scale — huge deco meshes at late game can OOM mobile GPUs
+    const decoS = Math.min(s, GFX.lowEnd ? 48 : 90);
+    h.deco.scale.set(decoS, decoS, decoS);
+    const decoY = h.deco.userData.flat ? 0.35 : 0;
     h.deco.position.set(h.x, decoY, h.z);
   }
 }
 
 function moveHole(h, dt) {
   const W = currentLevel.world;
+  const cap = maxHoleRadius();
+  if (h.r > cap) h.r = cap;
   const speed = 58 + sizeLevel(h.r) * 3.5;
   const d = dist(h.x, h.z, h.tx, h.tz);
   if (d > 1) {
-    const step = Math.min(speed*dt, d);
-    h.x += (h.tx-h.x)/d*step; h.z += (h.tz-h.z)/d*step;
+    const step = Math.min(speed * dt, d);
+    h.x += (h.tx - h.x) / d * step;
+    h.z += (h.tz - h.z) / d * step;
   }
-  h.x = clamp(h.x, -W+h.r, W-h.r);
-  h.z = clamp(h.z, -W+h.r, W-h.r);
+  // When r is large, W-r can be small — never invert min/max (that crashed late game)
+  const lim = Math.max(4, W - h.r);
+  h.x = clamp(h.x, -lim, lim);
+  h.z = clamp(h.z, -lim, lim);
   syncHole(h);
 }

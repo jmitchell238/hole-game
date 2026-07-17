@@ -7,8 +7,8 @@ const SPATIAL = {
   period: 3,
   enterPad: 100,
   exitPad: 45,
-  // Below this count, leave everything parented (no add/remove)
-  streamMinProps: 300,
+  // Below this count, leave everything parented (City Test ~25 — no thrash)
+  streamMinProps: 80,
 };
 
 const _frustum = new THREE.Frustum();

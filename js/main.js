@@ -115,9 +115,13 @@ function setFpsOverlay(on, fpsValue) {
 }
 
 function render() {
-  const height = 22.5 + player.r * 7.3, depth = 18.5 + player.r * 6.2;
+  // Camera zoom: softer on iPad so late game doesn't paint the whole map
+  let height = 22.5 + player.r * (GFX.camHeightMul || 7.3);
+  let depth = 18.5 + player.r * (GFX.camDepthMul || 6.2);
+  if (GFX.camHeightCap) height = Math.min(height, GFX.camHeightCap);
+  if (GFX.camDepthCap) depth = Math.min(depth, GFX.camDepthCap);
   const want = new THREE.Vector3(player.x, height, player.z + depth);
-  camPos.lerp(want, 0.08);
+  camPos.lerp(want, GFX.lowEnd ? 0.12 : 0.08);
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
