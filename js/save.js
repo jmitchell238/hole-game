@@ -20,6 +20,8 @@ let SAVE = {
   campaignLevel: 1,          // current campaign level (1+)
   // One-shot: migrate old saves that had shadows forced on for tablets
   _shadowsMigratedV30: false,
+  gfxQuality: 'auto',   // 'auto' | 'high' | 'perf' (Settings)
+  measuredTier: null,   // set to 'perf' by the FPS auto-tuner
 };
 try {
   const stored = JSON.parse(localStorage.getItem(SAVE_KEY));

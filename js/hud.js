@@ -195,6 +195,14 @@ controlsSel.onchange = () => {
   SAVE.controls = controlsSel.value;
   persistSave();
 };
+const gfxSel = document.getElementById('gfxSel');
+gfxSel.value = SAVE.gfxQuality || 'auto';
+gfxSel.onchange = () => {
+  SAVE.gfxQuality = gfxSel.value;
+  if (gfxSel.value === 'auto') SAVE.measuredTier = null;  // re-measure
+  persistSave();
+  location.reload();   // renderer settings are boot-time - rebuild
+};
 const debugChk = document.getElementById('debugChk');
 const debugSection = document.getElementById('debugSection');
 function syncDebugUi() {

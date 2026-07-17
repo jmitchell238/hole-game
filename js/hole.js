@@ -4,7 +4,7 @@
 // The pit inside every hole: soil at the rim fading to black, with a
 // black floor far below so falling objects sink out of sight naturally.
 // Fewer segments on tablets — same look at game camera distances.
-const HOLE_SEG = (typeof GFX !== 'undefined' && GFX.mobile) ? 12 : 32;
+const HOLE_SEG = (typeof GFX !== 'undefined' && GFX.lowEnd) ? 12 : 32;
 const PIT_GEO = new THREE.CylinderGeometry(1, 1, HOLE_DEPTH, HOLE_SEG, 1, true);
 const CAP_GEO = new THREE.CircleGeometry(1, HOLE_SEG);
 const CAP_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, fog: false });

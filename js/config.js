@@ -36,8 +36,18 @@ const IS_IPAD = IS_TOUCH && !IS_IPHONE && (
 );
 const IS_LARGE_TABLET = IS_IPAD &&
   Math.max(screen.width || 0, screen.height || 0) >= 1000;
-// Performance mode ONLY for iPads (gen-1 Pro is the laggy target). Phones stay sharp.
-const IS_LOW_END = IS_IPAD;
+
+// Quality tier: 'high' (default for everyone) or 'perf'.
+// Resolved from the save (config loads before save.js, so read localStorage directly).
+// 'auto' (default) uses the persisted measured tier from the FPS auto-tuner.
+let _storedSave = null;
+try { _storedSave = JSON.parse(localStorage.getItem('holeRoyale.save.v1')); } catch (_) {}
+const _gfxPref = (_storedSave && _storedSave.gfxQuality) || 'auto';
+const QUALITY_TIER =
+  _gfxPref === 'perf' ? 'perf' :
+  _gfxPref === 'high' ? 'high' :
+  (_storedSave && _storedSave.measuredTier === 'perf') ? 'perf' : 'high';
+const IS_LOW_END = QUALITY_TIER === 'perf';
 
 // Props safe to thin on iPad (buildings/landmarks kept). Winter was drowning
 // the GPU with snowpines/gifts/people as the camera zoomed out.
@@ -52,6 +62,7 @@ const _DPR = window.devicePixelRatio || 1;
 
 // Three visual profiles: desktop / modern phone / old iPad
 const GFX = {
+  tier: QUALITY_TIER,
   mobile: IS_TOUCH,
   lowEnd: IS_LOW_END,
   isIPhone: IS_IPHONE,
@@ -84,7 +95,7 @@ const GFX = {
   camHeightCap: 99999,
   camDepthCap: 99999,
   // label for FPS chip
-  qualityLabel: IS_LOW_END ? 'ipad-perf' : (IS_IPHONE ? 'iphone' : (IS_TOUCH ? 'mobile' : 'desktop')),
+  qualityLabel: QUALITY_TIER === 'perf' ? 'perf' : (IS_IPHONE ? 'iphone' : (IS_IPAD ? 'ipad' : (IS_TOUCH ? 'mobile' : 'desktop'))),
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
