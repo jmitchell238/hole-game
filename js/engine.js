@@ -29,7 +29,8 @@ renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault
 
 const scene = new THREE.Scene();
 // Shorter far plane on low-end — less overdraw in the distance
-const camera = new THREE.PerspectiveCamera(55, 16/9, 1, GFX.lowEnd ? 2200 : 6000);
+// Far plane must clear the ground when the camera is high late-game
+const camera = new THREE.PerspectiveCamera(55, 16/9, 1, GFX.lowEnd ? 4500 : 6000);
 
 // The frame is pinned to the viewport by CSS (inset:0) and layoutFrame just measures it.
 const FRAME = { w: 0, h: 0, x: 0, y: 0 };

@@ -1,13 +1,11 @@
-// LOD + light streaming for props (Doom/Quake-style: cheaper at distance, still visible).
+// Visibility + LOD for props (classic engine approach):
 //
-// Earlier we unparented far props → they "popped in" and the player couldn't plan
-// routes. Classic games keep silhouettes on screen and only drop *detail*.
-//
-// LOD 0 = full mesh (close / large on screen)
-// LOD 1 = single colored box proxy (far / small on screen) — still shows where
-//         stuff is so you can steer toward it
-//
-// Unparent only for truly off-map junk (well past fog). Falling props force LOD 0.
+//  1. OFF camera frustum  → not in the scene (not rendered)
+//  2. ALMOST on screen    → parented early (margin / hysteresis) so nothing
+//                           pops in at the edge of the view
+//  3. ON screen + large   → full detail mesh
+//  4. ON screen + small   → cheap box proxy (still visible for navigation)
+//  5. EATEN / destroyed   → destroyProp(): remove + dispose (gone for good)
 
 // Shared unit geometries — one alloc for the whole game
 const _PROXY_BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -19,7 +17,6 @@ function _proxyMat(hex) {
   return _proxyMatCache[k];
 }
 
-// Silhouette colors by theme so distant blobs still read as "tree / person / car"
 function proxyColorFor(name) {
   const n = name || '';
   if (/tree|palm|bush|pine|snowpine|scrub/.test(n)) return 0x3d8f4a;
@@ -37,7 +34,6 @@ function proxyColorFor(name) {
 
 /**
  * Wrap a detailed prop mesh with a cheap far LOD proxy under one root Group.
- * Root is what goes in objects[].mesh / the scene.
  */
 function attachPropLod(fullMesh, name, stats) {
   const root = new THREE.Group();
@@ -75,30 +71,63 @@ function setPropLod(o, lod) {
   const full = root.userData.full;
   const proxy = root.userData.proxy;
   if (lod === 0) {
-    // Full detail: re-attach detailed mesh, hide box
     if (full && !full.parent) root.add(full);
     if (full) full.visible = true;
     if (proxy) proxy.visible = false;
   } else {
-    // Far LOD: DETACH detailed mesh from the scene graph (not just visible=false)
-    // so Three.js doesn't walk hundreds of child nodes — this is the Quake trick.
+    // Detach detailed mesh so the renderer doesn't walk it
     if (full && full.parent) root.remove(full);
     if (proxy) proxy.visible = true;
   }
 }
 
-// Tuned for 1st-gen iPad Pro 12.9" (A9X) via GFX.* — see js/config.js
+// ---- Destroy eaten props (GPU + scene graph) --------------------------------
+function _disposeObject3D(obj) {
+  if (!obj) return;
+  obj.traverse(m => {
+    if (!m.isMesh) return;
+    // Never dispose shared proxy geometry / shared materials
+    if (m.geometry && m.geometry !== _PROXY_BOX) {
+      m.geometry.dispose();
+    }
+    // Materials are shared (MAT.*, proxy cache) — do not dispose
+  });
+}
+
+/** Remove an eaten/destroyed prop from the world permanently. */
+function destroyProp(o) {
+  if (!o) return;
+  o.dead = true;
+  const root = o.mesh;
+  if (!root) return;
+
+  // Full detail may already be detached for far LOD — still dispose it
+  const full = root.userData && root.userData.full;
+  if (full) {
+    if (full.parent) full.parent.remove(full);
+    _disposeObject3D(full);
+  }
+  if (root.parent) root.parent.remove(root);
+  // Proxy uses shared box + shared materials — just drop the root group
+  o.mesh = null;
+  o._streamed = false;
+}
+
+// ---- Frustum visibility -------------------------------------------------------
 const SPATIAL = {
-  cell: 120,
-  period: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 2 : 2,
-  // Projected size (CSS px) thresholds with hysteresis — no flicker at the edge
+  period: 2,
+  // World-unit padding outside the camera frustum ("almost on screen")
+  // Enter uses larger pad so objects load before they scroll into view.
+  enterPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 90 : 70,
+  exitPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 40 : 30,
+  // LOD projected-size thresholds (CSS px) with hysteresis
   fullEnterPx: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 28 : 22,
   fullExitPx: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 18 : 14,
-  // Only unparent beyond this (well past fog) — NOT for "far but on map"
-  unloadRange: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 1600 : 2400,
-  // Always use at least proxy within this (navigation visibility)
-  alwaysShowRange: (typeof GFX !== 'undefined' && GFX.viewMaxRange) || 900,
 };
+
+const _frustum = new THREE.Frustum();
+const _mat = new THREE.Matrix4();
+const _sphere = new THREE.Sphere();
 
 let _streamTick = 0;
 let _lastStreamInScene = 0;
@@ -106,7 +135,7 @@ let _lastFullLod = 0;
 let _spatialReady = false;
 
 function cellKey(x, z) {
-  const C = SPATIAL.cell;
+  const C = 120;
   return Math.floor(x / C) + ':' + Math.floor(z / C);
 }
 
@@ -115,12 +144,11 @@ function rebuildSpatialIndex() {
     const o = objects[i];
     if (o.dead) continue;
     o._cell = cellKey(o.x, o.z);
-    o._streamed = !!o.mesh.parent;
+    o._streamed = !!(o.mesh && o.mesh.parent);
   }
   _spatialReady = true;
 }
 
-// Approx projected height in CSS pixels for a footprint radius at world pos.
 function approxPixels(radius, ox, oz) {
   if (!camera || !player) return 99;
   const dx = ox - camera.position.x;
@@ -133,42 +161,61 @@ function approxPixels(radius, ox, oz) {
   return (radius * 2 / dist) * (halfH / Math.tan(fov * 0.5));
 }
 
-// How far the camera can usefully see landmarks (for unload only).
+// Kept for perf suite / debug
 function viewRadius() {
-  if (!player) return 400;
-  const height = 22.5 + player.r * 7.3;
-  const byCam = height * 1.25 + 120;
-  const byHole = player.r * 6 + 220;
-  return Math.min(SPATIAL.alwaysShowRange, Math.max(byCam, byHole));
+  if (!player || !camera) return 400;
+  const height = camera.position.y;
+  return Math.min(1400, height * 1.4 + 150);
+}
+
+/** Plane set for an expanded camera frustum (pad in world units). */
+function frustumPlanes(pad) {
+  camera.updateMatrixWorld(true);
+  _mat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_mat);
+  const planes = new Array(6);
+  for (let i = 0; i < 6; i++) {
+    const p = _frustum.planes[i];
+    // Planes face inward; +pad expands volume so "almost on screen" counts
+    planes[i] = { nx: p.normal.x, ny: p.normal.y, nz: p.normal.z, c: p.constant + pad };
+  }
+  return planes;
+}
+
+function sphereHitsPlanes(planes) {
+  const c = _sphere.center, r = _sphere.radius;
+  for (let i = 0; i < 6; i++) {
+    const p = planes[i];
+    if (p.nx * c.x + p.ny * c.y + p.nz * c.z + p.c < -r) return false;
+  }
+  return true;
 }
 
 /**
- * Update LOD and (rarely) unparent props that are absurdly far.
- * Props stay visible as cheap boxes when far — no more pop-in.
- * @param {boolean} force
- * @returns {number} props currently parented to the scene
+ * Parent only props in / near the camera view; set LOD by on-screen size.
+ * Off-screen → not rendered. Almost-on-screen → loaded early (enterPad).
  */
 function streamProps(force) {
-  if (!player || !objects.length) return 0;
+  if (!player || !camera || !objects.length) return 0;
   if (!_spatialReady) rebuildSpatialIndex();
 
   _streamTick++;
   if (!force && (_streamTick % SPATIAL.period) !== 0) return _lastStreamInScene;
 
-  const cx = player.x, cz = player.z;
-  const unloadR = SPATIAL.unloadRange;
-  const unloadR2 = unloadR * unloadR;
+  // Wide enter / tight exit → load before visible, drop only once clearly off-screen
+  const enterPlanes = frustumPlanes(SPATIAL.enterPad);
+  const exitPlanes = frustumPlanes(SPATIAL.exitPad);
+
   const fullEnter = SPATIAL.fullEnterPx;
   const fullExit = SPATIAL.fullExitPx;
-
   let inScene = 0;
   let fullN = 0;
 
   for (let i = 0; i < objects.length; i++) {
     const o = objects[i];
-    if (o.dead) continue;
+    if (o.dead || !o.mesh) continue;
 
-    // Falling: full detail, always attached
+    // Falling into a hole: always draw full detail
     if (o.falling) {
       if (!o.mesh.parent) scene.add(o.mesh);
       setPropLod(o, 0);
@@ -179,30 +226,33 @@ function streamProps(force) {
       continue;
     }
 
-    const dx = o.x - cx, dz = o.z - cz;
-    const d2 = dx * dx + dz * dz;
+    const rad = Math.max(o.r * 1.4, (o.h || 4) * 0.55, 4);
+    _sphere.center.set(o.x, (o.h || 8) * 0.4, o.z);
+    _sphere.radius = rad;
 
-    // Truly off the useful map — only then unparent (saves scene-graph cost)
-    if (d2 > unloadR2) {
+    const onScreen = o._streamed
+      ? sphereHitsPlanes(exitPlanes)
+      : sphereHitsPlanes(enterPlanes);
+
+    if (!onScreen) {
+      // OFF SCREEN — not rendered
       if (o.mesh.parent) scene.remove(o.mesh);
       o._streamed = false;
       continue;
     }
 
+    // ON or ALMOST on screen
     if (!o.mesh.parent) scene.add(o.mesh);
     o.mesh.visible = true;
     o._streamed = true;
     inScene++;
 
-    // LOD from projected size + hysteresis (Quake-style: detail by distance)
     const px = approxPixels(Math.max(o.r, 2), o.x, o.z);
     const cur = (o.mesh.userData && o.mesh.userData.lod) || 0;
     let next = cur;
     if (cur === 0) {
-      // Currently full — drop to proxy when small on screen
       if (px < fullExit) next = 1;
     } else {
-      // Currently proxy — promote to full when large enough
       if (px > fullEnter) next = 0;
     }
     setPropLod(o, next);
@@ -228,7 +278,6 @@ function countFullLodProps() {
 
 function countSceneMeshes() {
   let n = 0;
-  // traverseVisible skips subtrees under visible=false parents
   if (scene.traverseVisible) {
     scene.traverseVisible(o => { if (o.isMesh) n++; });
   } else {

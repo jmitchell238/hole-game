@@ -108,7 +108,9 @@ function update(dt) {
       // …but the object keeps tumbling down the pit, and is only removed
       // once it has sunk completely out of sight below the pit floor.
       if (ob.mesh.position.y + ob.h < -HOLE_DEPTH) {
-        scene.remove(ob.mesh); ob.dead = true;
+        // Destroyed for good — strip from scene + free GPU resources
+        if (typeof destroyProp === 'function') destroyProp(ob);
+        else { scene.remove(ob.mesh); ob.dead = true; }
       }
       continue;
     }

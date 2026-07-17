@@ -5,23 +5,10 @@ function init(level) {
   applyGfxSettings();
   document.getElementById('tags').innerHTML = '';
   for (const h of holes) removeHole(h);
-  for (const o of objects) scene.remove(o.mesh);
-  // Dispose GPU resources before clearing objects
+  // Tear down previous match props cleanly (shared proxy geo/mats stay alive)
   for (const o of objects) {
-    o.mesh.traverse(mesh => {
-      if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) {
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach(m => {
-            if (m.map) m.map.dispose();
-            m.dispose();
-          });
-        } else {
-          if (mesh.material.map) mesh.material.map.dispose();
-          mesh.material.dispose();
-        }
-      }
-    });
+    if (typeof destroyProp === 'function') destroyProp(o);
+    else if (o.mesh) scene.remove(o.mesh);
   }
   objects = [];
   holes = [];
