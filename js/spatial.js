@@ -1,128 +1,16 @@
-// Visibility + LOD for props (classic engine approach):
+// Camera frustum visibility for props — no box proxies, no ugly LOD.
 //
-//  1. OFF camera frustum  → not in the scene (not rendered)
-//  2. ALMOST on screen    → parented early (margin / hysteresis) so nothing
-//                           pops in at the edge of the view
-//  3. ON screen + large   → full detail mesh
-//  4. ON screen + small   → cheap box proxy (still visible for navigation)
-//  5. EATEN / destroyed   → destroyProp(): remove + dispose (gone for good)
+// Rules:
+//  • Off screen            → not parented (not rendered)
+//  • Almost on screen      → parented early (enter pad) so edges don't pop
+//  • On screen             → full original mesh
+//  • Eaten / destroyed     → destroyProp() removes + frees geometry
 
-// Shared unit geometries — one alloc for the whole game
-const _PROXY_BOX = new THREE.BoxGeometry(1, 1, 1);
-const _proxyMatCache = Object.create(null);
-function _proxyMat(hex) {
-  const k = hex | 0;
-  if (!_proxyMatCache[k])
-    _proxyMatCache[k] = new THREE.MeshLambertMaterial({ color: k });
-  return _proxyMatCache[k];
-}
-
-function proxyColorFor(name) {
-  const n = name || '';
-  if (/tree|palm|bush|pine|snowpine|scrub/.test(n)) return 0x3d8f4a;
-  if (/person|sheep/.test(n)) return 0xd07050;
-  if (/dog|longhorn/.test(n)) return 0x8a6642;
-  if (/car|bus|wagon|train|engine/.test(n)) return 0x4f8ae8;
-  if (/house|shop|apartment|tower|skyrise|cottage|keep|castle|woodbuilding|hut|longhouse|lighthouse|church|mill|gate|igloo/.test(n))
-    return 0xc4b49a;
-  if (/rock|mesa|stone/.test(n)) return 0x8a8070;
-  if (/boat|pier/.test(n)) return 0x8a5a33;
-  if (/cactus/.test(n)) return 0x4a9e3f;
-  if (/snowman|gift|sled|xmastree/.test(n)) return 0xe8f0f6;
-  return 0x9aa0a6;
-}
-
-/**
- * Wrap a detailed prop mesh with a cheap far LOD proxy under one root Group.
- */
-function attachPropLod(fullMesh, name, stats) {
-  const root = new THREE.Group();
-  fullMesh.position.set(0, 0, 0);
-  fullMesh.rotation.set(0, 0, 0);
-  fullMesh.scale.set(1, 1, 1);
-  fullMesh.matrixAutoUpdate = false;
-  fullMesh.updateMatrix();
-  root.add(fullMesh);
-
-  const w = Math.max(2.2, stats.r * 1.75);
-  const h = Math.max(2.2, (stats.h || stats.r * 2) * 0.9);
-  const proxy = new THREE.Mesh(_PROXY_BOX, _proxyMat(proxyColorFor(name)));
-  proxy.scale.set(w, h, w);
-  proxy.position.y = h * 0.5;
-  proxy.matrixAutoUpdate = false;
-  proxy.updateMatrix();
-  proxy.visible = false;
-  proxy.frustumCulled = true;
-  proxy.castShadow = false;
-  root.add(proxy);
-
-  root.userData.full = fullMesh;
-  root.userData.proxy = proxy;
-  root.userData.lod = 0; // 0 = full, 1 = proxy
-  root.userData.propName = name;
-  return root;
-}
-
-function setPropLod(o, lod) {
-  const root = o.mesh;
-  if (!root || !root.userData || !root.userData.full) return;
-  if (root.userData.lod === lod) return;
-  root.userData.lod = lod;
-  const full = root.userData.full;
-  const proxy = root.userData.proxy;
-  if (lod === 0) {
-    if (full && !full.parent) root.add(full);
-    if (full) full.visible = true;
-    if (proxy) proxy.visible = false;
-  } else {
-    // Detach detailed mesh so the renderer doesn't walk it
-    if (full && full.parent) root.remove(full);
-    if (proxy) proxy.visible = true;
-  }
-}
-
-// ---- Destroy eaten props (GPU + scene graph) --------------------------------
-function _disposeObject3D(obj) {
-  if (!obj) return;
-  obj.traverse(m => {
-    if (!m.isMesh) return;
-    // Never dispose shared proxy geometry / shared materials
-    if (m.geometry && m.geometry !== _PROXY_BOX) {
-      m.geometry.dispose();
-    }
-    // Materials are shared (MAT.*, proxy cache) — do not dispose
-  });
-}
-
-/** Remove an eaten/destroyed prop from the world permanently. */
-function destroyProp(o) {
-  if (!o) return;
-  o.dead = true;
-  const root = o.mesh;
-  if (!root) return;
-
-  // Full detail may already be detached for far LOD — still dispose it
-  const full = root.userData && root.userData.full;
-  if (full) {
-    if (full.parent) full.parent.remove(full);
-    _disposeObject3D(full);
-  }
-  if (root.parent) root.parent.remove(root);
-  // Proxy uses shared box + shared materials — just drop the root group
-  o.mesh = null;
-  o._streamed = false;
-}
-
-// ---- Frustum visibility -------------------------------------------------------
 const SPATIAL = {
   period: 2,
-  // World-unit padding outside the camera frustum ("almost on screen")
-  // Enter uses larger pad so objects load before they scroll into view.
-  enterPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 90 : 70,
-  exitPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 40 : 30,
-  // LOD projected-size thresholds (CSS px) with hysteresis
-  fullEnterPx: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 28 : 22,
-  fullExitPx: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 18 : 14,
+  // World-unit pad outside the frustum ("almost on screen")
+  enterPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 100 : 80,
+  exitPad: (typeof GFX !== 'undefined' && GFX.lowEnd) ? 45 : 35,
 };
 
 const _frustum = new THREE.Frustum();
@@ -131,7 +19,6 @@ const _sphere = new THREE.Sphere();
 
 let _streamTick = 0;
 let _lastStreamInScene = 0;
-let _lastFullLod = 0;
 let _spatialReady = false;
 
 function cellKey(x, z) {
@@ -142,33 +29,18 @@ function cellKey(x, z) {
 function rebuildSpatialIndex() {
   for (let i = 0; i < objects.length; i++) {
     const o = objects[i];
-    if (o.dead) continue;
+    if (o.dead || !o.mesh) continue;
     o._cell = cellKey(o.x, o.z);
-    o._streamed = !!(o.mesh && o.mesh.parent);
+    o._streamed = !!o.mesh.parent;
   }
   _spatialReady = true;
 }
 
-function approxPixels(radius, ox, oz) {
-  if (!camera || !player) return 99;
-  const dx = ox - camera.position.x;
-  const dy = 0 - camera.position.y;
-  const dz = oz - camera.position.z;
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (dist < 1) return 999;
-  const fov = camera.fov * Math.PI / 180;
-  const halfH = (FRAME && FRAME.h) ? FRAME.h * 0.5 : 400;
-  return (radius * 2 / dist) * (halfH / Math.tan(fov * 0.5));
-}
-
-// Kept for perf suite / debug
 function viewRadius() {
-  if (!player || !camera) return 400;
-  const height = camera.position.y;
-  return Math.min(1400, height * 1.4 + 150);
+  if (!camera) return 400;
+  return Math.min(1600, camera.position.y * 1.5 + 200);
 }
 
-/** Plane set for an expanded camera frustum (pad in world units). */
 function frustumPlanes(pad) {
   camera.updateMatrixWorld(true);
   _mat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -176,7 +48,6 @@ function frustumPlanes(pad) {
   const planes = new Array(6);
   for (let i = 0; i < 6; i++) {
     const p = _frustum.planes[i];
-    // Planes face inward; +pad expands volume so "almost on screen" counts
     planes[i] = { nx: p.normal.x, ny: p.normal.y, nz: p.normal.z, c: p.constant + pad };
   }
   return planes;
@@ -191,9 +62,25 @@ function sphereHitsPlanes(planes) {
   return true;
 }
 
+/** Permanent removal when a prop is eaten / finished falling. */
+function destroyProp(o) {
+  if (!o) return;
+  o.dead = true;
+  const root = o.mesh;
+  if (!root) return;
+  if (root.parent) root.parent.remove(root);
+  root.traverse(m => {
+    if (!m.isMesh) return;
+    if (m.geometry) m.geometry.dispose();
+    // Shared materials (MAT.*) — do not dispose
+  });
+  o.mesh = null;
+  o._streamed = false;
+}
+
 /**
- * Parent only props in / near the camera view; set LOD by on-screen size.
- * Off-screen → not rendered. Almost-on-screen → loaded early (enterPad).
+ * Parent props that are on-screen or almost on-screen; unparent the rest.
+ * Always full detail — no box silhouettes.
  */
 function streamProps(force) {
   if (!player || !camera || !objects.length) return 0;
@@ -202,31 +89,24 @@ function streamProps(force) {
   _streamTick++;
   if (!force && (_streamTick % SPATIAL.period) !== 0) return _lastStreamInScene;
 
-  // Wide enter / tight exit → load before visible, drop only once clearly off-screen
   const enterPlanes = frustumPlanes(SPATIAL.enterPad);
   const exitPlanes = frustumPlanes(SPATIAL.exitPad);
 
-  const fullEnter = SPATIAL.fullEnterPx;
-  const fullExit = SPATIAL.fullExitPx;
   let inScene = 0;
-  let fullN = 0;
-
   for (let i = 0; i < objects.length; i++) {
     const o = objects[i];
     if (o.dead || !o.mesh) continue;
 
-    // Falling into a hole: always draw full detail
+    // Falling into a hole: always draw
     if (o.falling) {
       if (!o.mesh.parent) scene.add(o.mesh);
-      setPropLod(o, 0);
       o.mesh.visible = true;
       o._streamed = true;
       inScene++;
-      fullN++;
       continue;
     }
 
-    const rad = Math.max(o.r * 1.4, (o.h || 4) * 0.55, 4);
+    const rad = Math.max(o.r * 1.5, (o.h || 4) * 0.6, 6);
     _sphere.center.set(o.x, (o.h || 8) * 0.4, o.z);
     _sphere.radius = rad;
 
@@ -235,32 +115,18 @@ function streamProps(force) {
       : sphereHitsPlanes(enterPlanes);
 
     if (!onScreen) {
-      // OFF SCREEN — not rendered
       if (o.mesh.parent) scene.remove(o.mesh);
       o._streamed = false;
       continue;
     }
 
-    // ON or ALMOST on screen
     if (!o.mesh.parent) scene.add(o.mesh);
     o.mesh.visible = true;
     o._streamed = true;
     inScene++;
-
-    const px = approxPixels(Math.max(o.r, 2), o.x, o.z);
-    const cur = (o.mesh.userData && o.mesh.userData.lod) || 0;
-    let next = cur;
-    if (cur === 0) {
-      if (px < fullExit) next = 1;
-    } else {
-      if (px > fullEnter) next = 0;
-    }
-    setPropLod(o, next);
-    if (next === 0) fullN++;
   }
 
   _lastStreamInScene = inScene;
-  _lastFullLod = fullN;
   return inScene;
 }
 
@@ -273,7 +139,8 @@ function countStreamedProps() {
 }
 
 function countFullLodProps() {
-  return _lastFullLod;
+  // No LOD tiers anymore — everything on-screen is full detail
+  return _lastStreamInScene;
 }
 
 function countSceneMeshes() {

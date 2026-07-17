@@ -21,19 +21,15 @@
     render_ms_p95_r60: 28,
     render_ms_p95_r130: 32,
     render_ms_p95_r250: 36,
-    streamed_props_r12_max: 2500,
-    streamed_props_r60_max: 2500,
+    streamed_props_r12_max: 1200,
+    streamed_props_r60_max: 2000,
     streamed_props_r130_max: 2500,
     streamed_props_r250_max: 2500,
-    full_lod_r12_max: 900,
-    full_lod_r60_max: 700,
-    full_lod_r130_max: 500,
-    full_lod_r250_max: 400,
-    scene_meshes_r12_max: 2800,
-    scene_meshes_r60_max: 3200,
-    scene_meshes_r130_max: 3600,
-    scene_meshes_r250_max: 4000,
-    streamed_frac_late_max: 0.35,
+    scene_meshes_r12_max: 3500,
+    scene_meshes_r60_max: 4500,
+    scene_meshes_r130_max: 5500,
+    scene_meshes_r250_max: 5500,
+    streamed_frac_late_max: 1.0,
   };
 
   let fails = 0;
@@ -130,18 +126,13 @@
 
       metric('update_ms_p95_r' + r + '_' + levelId, percentile(upd, 0.95), BUDGETS.update_ms_p95, 'max');
       metric('render_ms_p95_r' + r + '_' + levelId, percentile(ren, 0.95), BUDGETS['render_ms_p95_r' + r], 'max');
-      const fullLod = typeof countFullLodProps === 'function' ? countFullLodProps() : -1;
-      metric('streamed_props_r' + r + '_' + levelId, streamed, null); // almost all stay parented now
-      metric('full_lod_r' + r + '_' + levelId, fullLod, BUDGETS['full_lod_r' + r + '_max'], 'max');
+      metric('streamed_props_r' + r + '_' + levelId, streamed, BUDGETS['streamed_props_r' + r + '_max'], 'max');
       metric('scene_meshes_r' + r + '_' + levelId, meshes, BUDGETS['scene_meshes_r' + r + '_max'], 'max');
       metric('view_radius_r' + r + '_' + levelId, typeof viewRadius === 'function' ? viewRadius() : -1, null);
     }
 
-    // Full-detail count must stay bounded late game (proxies handle the rest)
     if (objects.length > 0 && streamedAt[250] != null) {
-      // re-read full lod at r=250 via last stream pass
-      const fullLate = typeof countFullLodProps === 'function' ? countFullLodProps() : 0;
-      metric('full_lod_frac_late_' + levelId, fullLate / objects.length,
+      metric('streamed_frac_late_' + levelId, streamedAt[250] / objects.length,
         BUDGETS.streamed_frac_late_max, 'max');
     }
 

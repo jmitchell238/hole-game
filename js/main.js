@@ -101,11 +101,9 @@ function render() {
   camera.position.copy(camPos);
   camera.lookAt(player.x, 0, player.z);
 
-  // Dynamic fog: grow with the camera but hard-cap (gen-1 iPad Pro profile).
-  // Streaming already detaches far meshes; fog hides the pop-in edge.
-  const fogCap = GFX.fogCap || (GFX.mobile ? 1400 : 2200);
-  scene.fog.far = Math.min(fogCap, Math.max(currentLevel.fog[1] * (GFX.lowEnd ? 0.7 : 1), height * (GFX.lowEnd ? 1.55 : 2.0)));
-  scene.fog.near = scene.fog.far * (GFX.lowEnd ? 0.45 : 0.4);
+  const fogCap = GFX.fogCap || 2200;
+  scene.fog.far = Math.min(fogCap, Math.max(currentLevel.fog[1], height * 2.2));
+  scene.fog.near = scene.fog.far * 0.38;
 
   // Sun (and its shadow window) follows the player.
   sun.position.set(player.x - 260, 520, player.z + 180);

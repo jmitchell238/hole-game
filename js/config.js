@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.34.002';
+const GAME_VERSION = '2.35.001';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
@@ -36,25 +36,23 @@ const GFX = {
   largeTablet: IS_LARGE_TABLET,
   // Never use devicePixelRatio 2 on tablets — A9X cannot fill 2732×2048.
   pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
-  // Draw at a fraction of CSS size, stretch up (fill-rate win on big panels).
-  // ~0.58 ≈ 1/3 the pixels of full CSS size on 12.9" landscape.
-  renderScale: IS_LOW_END ? 0.58 : 1,
-  antialias: !IS_TOUCH, // MSAA is too expensive on A9X fill rate
-  shadowMapSize: IS_LOW_END ? 256 : 1024,
+  // Mild internal downscale on tablets (still looks sharp, saves A9X fill-rate).
+  // Hole.io-class games do this; we were too aggressive at 0.58 before.
+  renderScale: IS_LOW_END ? 0.75 : 1,
+  antialias: !IS_TOUCH,
+  shadowMapSize: IS_LOW_END ? 512 : 1024,
   softShadows: !IS_TOUCH,
-  groundCurve: IS_LOW_END ? 8 : 16,
-  // 1k ground textures — 4k uploads thrash gen-1 VRAM
-  maxTexSize: IS_LOW_END ? 1024 : 4096,
-  anisotropy: 1,
-  propSeg: IS_LOW_END ? 4 : 8,
+  groundCurve: IS_LOW_END ? 12 : 20,
+  // 2k ground keeps roads/blocks readable on 12.9"
+  maxTexSize: IS_LOW_END ? 2048 : 4096,
+  anisotropy: IS_LOW_END ? 1 : 4,
+  propSeg: IS_LOW_END ? 6 : 8,
+  // KayKit is fine on desktop; tablets use lighter procedural meshes
   useGltf: !IS_TOUCH,
   mergeProps: true,
-  streamProps: true, // now means "update LOD" (keeps silhouettes; no pop-in)
-  // LOD / visibility (js/spatial.js) — landmarks stay on-screen as cheap boxes
-  viewMaxRange: IS_LOW_END ? 900 : 1600,
-  viewMinPixels: IS_LOW_END ? 8 : 2.5, // legacy; LOD uses fullEnter/Exit px
-  viewSmallRangeMul: IS_LOW_END ? 0.30 : 0.65,
-  fogCap: IS_LOW_END ? 1100 : 2400,
+  // Frustum parent/unparent only — full detail on screen, nothing off screen
+  streamProps: true,
+  fogCap: IS_LOW_END ? 1600 : 2800,
 };
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
