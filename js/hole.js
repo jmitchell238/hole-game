@@ -109,7 +109,7 @@ function makeHole(x, z, name, isPlayer) {
   tag.className = 'tag'; tag.textContent = name;
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
-  return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: 12, name, isPlayer,
+  return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: (typeof currentLevel !== 'undefined' && currentLevel && currentLevel.startR) || 12, name, isPlayer,
     tx: x, tz: z, retarget: 0, _ringLv: 1, _ringJitter: Math.random() * 0.06,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }

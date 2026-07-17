@@ -417,14 +417,57 @@ function populate(addProp) {
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
         wrappedAddProp('dog', ...inBlock(dx, dz));
       }
+      // Benches: 4 edge-facing
       wrappedAddProp('bench', ...inBlock(rand(-60, 60), -75), 0);
       wrappedAddProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
       wrappedAddProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
       wrappedAddProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
-      for (let k = 0; k < 14; k++) {
+      // Additional benches (total 8)
+      wrappedAddProp('bench', ...inBlock(rand(-60, 60), -75), 0);
+      wrappedAddProp('bench', ...inBlock(rand(-60, 60), 75), Math.PI);
+      wrappedAddProp('bench', ...inBlock(-75, rand(-50, 50)), Math.PI/2);
+      wrappedAddProp('bench', ...inBlock(75, rand(-50, 50)), -Math.PI/2);
+      // Tiny food items: people
+      for (let k = 0; k < 22; k++) {
         const dx = rand(-90, 90), dz = rand(-90, 90);
         if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
         wrappedAddProp('person', ...inBlock(dx, dz));
+      }
+      // Tiny food items: cones
+      for (let k = 0; k < 3; k++) {
+        const dx = rand(-90, 90), dz = rand(-90, 90);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
+        wrappedAddProp('cone', ...inBlock(dx, dz));
+      }
+      // Tiny food items: hydrants
+      for (let k = 0; k < 2; k++) {
+        const dx = rand(-90, 90), dz = rand(-90, 90);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
+        wrappedAddProp('hydrant', ...inBlock(dx, dz));
+      }
+      // Tiny food items: trashcans
+      for (let k = 0; k < 2; k++) {
+        const dx = rand(-90, 90), dz = rand(-90, 90);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
+        wrappedAddProp('trashcan', ...inBlock(dx, dz));
+      }
+      // Tiny food items: mailboxes
+      for (let k = 0; k < 2; k++) {
+        const dx = rand(-90, 90), dz = rand(-90, 90);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
+        wrappedAddProp('mailbox', ...inBlock(dx, dz));
+      }
+      // Additional bushes (total ~20)
+      for (let k = 0; k < 8; k++) {
+        const dx = rand(-90, 90), dz = rand(-90, 90);
+        if (isSpawn && Math.hypot(dx, dz) < 45) continue;
+        if (!isSpawn && Math.hypot(dx, dz) < 22) continue;
+        wrappedAddProp('bush', ...inBlock(dx, dz));
       }
     }
 
@@ -465,6 +508,7 @@ registerLevel({
   soil: ['#4a4038', '#241f1a'],
   skirtColor: 0x5a4a3a,
   progressLabel: 'City devoured',
+  startR: 8,
   // world, playerSpawn, and botSpawns are rolled by generate() every match.
   generate,
   createGroundTexture: cityGroundTexture,
