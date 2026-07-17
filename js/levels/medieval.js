@@ -204,6 +204,53 @@ registerProp('torch', { r: 1.5, h: 9 }, function() {
   return g;
 }, false);
 
+// Gatehouse: arched stone entry with twin turrets
+registerProp('gatehouse', { r: 18, h: 40 }, function() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.BoxGeometry(28, 28, 14), STONE, 0, 14, 0));
+  // Arch opening
+  g.add(part(new THREE.BoxGeometry(10, 14, 15), new THREE.MeshLambertMaterial({ color: 0x2a211a }), 0, 7, 0));
+  // Twin turrets
+  for (const tx of [-12, 12]) {
+    g.add(part(new THREE.CylinderGeometry(5, 5, 18, 10), STONE, tx, 30, 0));
+    g.add(part(new THREE.ConeGeometry(6, 6, 8), STONE, tx, 42, 0));
+  }
+  // Banner
+  g.add(part(new THREE.BoxGeometry(0.4, 8, 5), YELLOW, 0, 32, 8));
+  return g;
+}, true);
+
+// Grain mill: round stone base + thatch cone + cross sails
+registerProp('mill', { r: 12, h: 36 }, function() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.CylinderGeometry(9, 10, 22, 12), STONE, 0, 11, 0));
+  g.add(part(new THREE.ConeGeometry(11, 10, 10), THATCH, 0, 26, 0));
+  // Wind sails (cross)
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI/2 + 0.4;
+    const sail = part(new THREE.BoxGeometry(2, 0.5, 16), TIMBER,
+      Math.cos(a)*6, 22, Math.sin(a)*6);
+    sail.rotation.y = a;
+    g.add(sail);
+  }
+  return g;
+}, true);
+
+// Local rock if island hasn't registered yet (defensive)
+if (!STATS.rock) {
+  registerProp('rock', { r: 6, h: 8 }, function () {
+    const g = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const s = rand(2.2, 4.4);
+      const m = part(new THREE.DodecahedronGeometry(s, 0), STONE,
+        rand(-3, 3), s*0.7, rand(-3, 3));
+      m.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
+      g.add(m);
+    }
+    return g;
+  }, false);
+}
+
 // ---- Medieval layout generation ----
 function generate() {
   WORLD = Math.round(rand(900, 1200));
@@ -362,123 +409,173 @@ function medievalGroundTexture() {
 
 // Populate the medieval kingdom
 function populate(addProp) {
-  // Castle complex: 1 keep + 4 towers + 4 walls + torches + knights
+  // Castle complex: keep + inner towers + outer wall ring + gatehouse
   addProp('keep', castleX, castleZ);
 
-  const keepR = 25;
-  // 4 corner towers
+  const keepR = 32;
+  // 4 inner corner towers
   for (const [tx, tz] of [[-keepR, -keepR], [keepR, -keepR], [-keepR, keepR], [keepR, keepR]]) {
     addProp('castletower', castleX + tx, castleZ + tz);
   }
 
-  // 4 castle walls connecting towers
+  // Inner walls
   const wallOffsets = [
-    { x: 0, z: -keepR - 15, angle: 0 },
-    { x: 0, z: keepR + 15, angle: 0 },
-    { x: -keepR - 15, z: 0, angle: Math.PI/2 },
-    { x: keepR + 15, z: 0, angle: Math.PI/2 }
+    { x: 0, z: -keepR - 12, angle: 0 },
+    { x: 0, z: keepR + 12, angle: 0 },
+    { x: -keepR - 12, z: 0, angle: Math.PI/2 },
+    { x: keepR + 12, z: 0, angle: Math.PI/2 }
   ];
   for (const w of wallOffsets) {
     addProp('castlewall', castleX + w.x, castleZ + w.z, w.angle);
   }
 
-  // Torches around castle (12 total for density)
-  for (let t = 0; t < 12; t++) {
-    const angle = t / 12 * Math.PI * 2;
-    const tr = keepR + 30;
+  // Outer bailey: 6 towers on a ring + walls between them
+  const outerR = 95;
+  const outerTowers = 6;
+  for (let t = 0; t < outerTowers; t++) {
+    const a0 = t / outerTowers * Math.PI * 2;
+    const a1 = (t + 1) / outerTowers * Math.PI * 2;
+    addProp('castletower', castleX + Math.cos(a0)*outerR, castleZ + Math.sin(a0)*outerR);
+    const mid = (a0 + a1) / 2;
+    const wr = outerR - 6;
+    addProp('castlewall',
+      castleX + Math.cos(mid)*wr,
+      castleZ + Math.sin(mid)*wr,
+      mid + Math.PI/2);
+  }
+
+  // Gatehouse facing first village
+  {
+    const v0 = villages[0];
+    const ga = Math.atan2(v0.z - castleZ, v0.x - castleX);
+    addProp('gatehouse',
+      castleX + Math.cos(ga)*(outerR + 8),
+      castleZ + Math.sin(ga)*(outerR + 8),
+      ga + Math.PI/2);
+  }
+
+  // Torches around outer wall
+  for (let t = 0; t < 18; t++) {
+    const angle = t / 18 * Math.PI * 2;
+    const tr = outerR + 18;
     addProp('torch', castleX + Math.cos(angle)*tr, castleZ + Math.sin(angle)*tr);
   }
 
-  // Knights inside castle (8–12)
-  const knightCount = 8 + ((Math.random()*4)|0);
-  for (let k = 0; k < knightCount; k++) {
+  // Knights in bailey + keep yard
+  for (let k = 0; k < 16; k++) {
     const angle = Math.random() * Math.PI * 2;
-    const r = rand(10, 35);
+    const r = rand(15, outerR - 15);
     addProp('person', castleX + Math.cos(angle)*r, castleZ + Math.sin(angle)*r);
   }
+  for (let k = 0; k < 4; k++)
+    addProp('cart', castleX + rand(-40, 40), castleZ + rand(-40, 40));
 
-  // Villages: densified 1.5× — more cottages, people, haybales, carts, stalls
-  for (const v of villages) {
-    // Cottages (8–14 per village, scaled up from 6-12)
-    const cottageCount = 8 + ((Math.random()*6)|0);
-    for (let c = 0; c < cottageCount; c++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(35, 130);
-      addProp('cottage', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r, Math.random()*Math.PI*2);
-    }
+  // Villages: ring layout around well + market square (readable settlements)
+  for (let vi = 0; vi < villages.length; vi++) {
+    const v = villages[vi];
 
-    // Well(s)
-    for (let w = 0; w < v.wellCount; w++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(15, 90);
-      addProp('well', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
-    }
-
-    // Stalls (2–4, up from 1-3)
-    const stallCount = 2 + ((Math.random()*2)|0);
+    // Center well + market stalls
+    addProp('well', v.x, v.z);
+    const stallCount = 4 + ((Math.random()*2)|0);
     for (let s = 0; s < stallCount; s++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(25, 110);
-      addProp('stall', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
+      const angle = s / stallCount * Math.PI * 2;
+      addProp('stall', v.x + Math.cos(angle)*28, v.z + Math.sin(angle)*28, angle + Math.PI);
+    }
+    addProp('cart', v.x + 18, v.z - 10, 0.4);
+    addProp('cart', v.x - 15, v.z + 12, -0.5);
+
+    // Cottages in two rings facing the square
+    const cottageCount = 14 + ((Math.random()*5)|0);  // 14–18
+    for (let c = 0; c < cottageCount; c++) {
+      const ring = (c < cottageCount * 0.55) ? 0 : 1;
+      const idx = ring === 0 ? c : c - Math.floor(cottageCount * 0.55);
+      const nRing = ring === 0 ? Math.ceil(cottageCount * 0.55) : cottageCount - Math.ceil(cottageCount * 0.55);
+      const angle = idx / nRing * Math.PI * 2 + rand(-0.08, 0.08);
+      const r = (ring === 0 ? 55 : 95) + rand(-6, 6);
+      addProp('cottage',
+        v.x + Math.cos(angle)*r,
+        v.z + Math.sin(angle)*r,
+        angle + Math.PI);
     }
 
-    // Carts (3–5, up from 2-4)
-    const cartCount = 3 + ((Math.random()*2)|0);
-    for (let c = 0; c < cartCount; c++) {
+    // Extra wells
+    for (let w = 1; w < v.wellCount; w++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = rand(20, 120);
-      addProp('cart', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
+      addProp('well', v.x + Math.cos(angle)*70, v.z + Math.sin(angle)*70);
     }
 
-    // Haybales (8–12, up from 4-8)
-    const haybaleCount = 8 + ((Math.random()*4)|0);
-    for (let h = 0; h < haybaleCount; h++) {
+    // Village clutter
+    for (let h = 0; h < 12; h++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = rand(30, 130);
+      const r = rand(40, 120);
       addProp('haybale', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r, Math.random()*Math.PI*2);
     }
-
-    // People (10–18, up from 10-16, scaled density)
-    const peopleCount = 10 + ((Math.random()*8)|0);
-    for (let p = 0; p < peopleCount; p++) {
+    for (let p = 0; p < 22; p++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = rand(25, 135);
+      const r = rand(20, 130);
       addProp('person', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
     }
-
-    // Dogs (3–5, up from 2-4)
-    const dogCount = 3 + ((Math.random()*2)|0);
-    for (let d = 0; d < dogCount; d++) {
+    for (let d = 0; d < 5; d++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = rand(30, 120);
+      const r = rand(30, 110);
       addProp('dog', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
+    }
+    for (let s = 0; s < 4; s++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = rand(50, 115);
+      addProp('sheep', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
+    }
+    // Orchard fringe
+    for (let t = 0; t < 8; t++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = rand(110, 150);
+      addProp('tree', v.x + Math.cos(angle)*r, v.z + Math.sin(angle)*r);
+    }
+
+    // Church near first village
+    if (vi === 0) {
+      const angle = Math.random() * Math.PI * 2;
+      addProp('church', v.x + Math.cos(angle)*140, v.z + Math.sin(angle)*140, angle);
     }
   }
 
-  // Farms: more haybales and sheep
-  for (const f of farms) {
-    // Haybales (4–8 per farm, increased)
-    const haybaleCount = 4 + ((Math.random()*4)|0);
-    for (let h = 0; h < haybaleCount; h++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(10, 55);
-      addProp('haybale', f.x + Math.cos(angle)*r, f.z + Math.sin(angle)*r, Math.random()*Math.PI*2);
+  // Farms: fenced plots + denser livestock + one mill
+  for (let fi = 0; fi < farms.length; fi++) {
+    const f = farms[fi];
+    const halfW = 45, halfH = 30;
+    // Fence outline
+    for (let t = -halfW; t <= halfW; t += 18) {
+      addProp('fence', f.x + t, f.z - halfH, f.angle);
+      addProp('fence', f.x + t, f.z + halfH, f.angle);
+    }
+    for (let t = -halfH; t <= halfH; t += 18) {
+      addProp('fence', f.x - halfW, f.z + t, f.angle + Math.PI/2);
+      addProp('fence', f.x + halfW, f.z + t, f.angle + Math.PI/2);
     }
 
-    // Sheep (6–10 per farm, increased from 4-8)
-    const sheepCount = 6 + ((Math.random()*4)|0);
-    for (let s = 0; s < sheepCount; s++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(8, 65);
-      addProp('sheep', f.x + Math.cos(angle)*r, f.z + Math.sin(angle)*r);
+    for (let h = 0; h < 8; h++) {
+      addProp('haybale', f.x + rand(-40, 40), f.z + rand(-25, 25), Math.random()*Math.PI*2);
     }
+    for (let s = 0; s < 12; s++) {
+      addProp('sheep', f.x + rand(-42, 42), f.z + rand(-28, 28));
+    }
+    for (let p = 0; p < 3; p++) {
+      addProp('person', f.x + rand(-35, 35), f.z + rand(-20, 20));
+    }
+    if (fi === 0) addProp('mill', f.x + 55, f.z + 40, f.angle);
+    else if (Math.random() < 0.35) addProp('cart', f.x + 30, f.z, f.angle);
+  }
 
-    // Farmers (2–3, up from 1-2)
-    const farmerCount = 2 + ((Math.random()*1)|0);
-    for (let p = 0; p < farmerCount; p++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = rand(15, 70);
-      addProp('person', f.x + Math.cos(angle)*r, f.z + Math.sin(angle)*r);
+  // Road traffic: carts, people, stalls between castle and villages
+  for (const v of villages) {
+    for (let s = 1; s <= 4; s++) {
+      const t = s / 5;
+      const x = castleX + (v.x - castleX) * t + rand(-20, 20);
+      const z = castleZ + (v.z - castleZ) * t + rand(-20, 20);
+      if (Math.random() < 0.55) addProp('person', x, z);
+      if (Math.random() < 0.35) addProp('cart', x + rand(-12, 12), z + rand(-12, 12));
+      if (Math.random() < 0.25) addProp('stall', x + rand(-18, 18), z + rand(-18, 18));
+      if (Math.random() < 0.4) addProp('torch', x + rand(-15, 15), z + rand(-15, 15));
     }
   }
 
@@ -595,13 +692,6 @@ function populate(addProp) {
     }
   }
 
-  // Church (1 per level, near one village)
-  if (villages.length > 0) {
-    const churchVillage = villages[0];
-    const angle = Math.random() * Math.PI * 2;
-    const r = rand(150, 220);
-    addProp('church', churchVillage.x + Math.cos(angle)*r, churchVillage.z + Math.sin(angle)*r);
-  }
 }
 
 registerLevel({

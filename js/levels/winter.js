@@ -158,33 +158,27 @@ function winterGroundTexture() {
 // Register winter-specific props
 registerProp('snowman', {r:3.5,h:9}, function() {
   const g = new THREE.Group();
+  const snow = new THREE.MeshLambertMaterial({ color: 0xf2f4f6 });
+  const coal = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+  const stick = new THREE.MeshLambertMaterial({ color: 0x5a4a3a });
   // Three stacked white spheres
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(3, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xf2f4f6 })).position.set(0, 3, 0) || g);
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(2.4, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xf2f4f6 })).position.set(0, 7.5, 0) || g);
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(1.8, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xf2f4f6 })).position.set(0, 10.5, 0) || g);
+  g.add(part(new THREE.SphereGeometry(3, 10, 8), snow, 0, 3, 0));
+  g.add(part(new THREE.SphereGeometry(2.4, 10, 8), snow, 0, 7.5, 0));
+  g.add(part(new THREE.SphereGeometry(1.8, 10, 8), snow, 0, 10.5, 0));
   // Carrot nose
-  const noseCone = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.2, 8),
-    new THREE.MeshLambertMaterial({ color: 0xff9933 }));
-  noseCone.position.set(1.8, 9.5, 0);
+  const noseCone = part(new THREE.ConeGeometry(0.4, 1.2, 8),
+    new THREE.MeshLambertMaterial({ color: 0xff9933 }), 1.8, 9.5, 0);
   noseCone.rotation.z = Math.PI/2;
   g.add(noseCone);
   // Coal eyes
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 5),
-    new THREE.MeshLambertMaterial({ color: 0x1a1a1a })).position.set(0.6, 11, 0.6) || g);
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 5),
-    new THREE.MeshLambertMaterial({ color: 0x1a1a1a })).position.set(-0.6, 11, 0.6) || g);
-  // Stick arms (thin boxes)
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 0.3),
-    new THREE.MeshLambertMaterial({ color: 0x5a4a3a }));
-  armL.position.set(-2.5, 7.5, 0);
-  g.add(armL);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 0.3),
-    new THREE.MeshLambertMaterial({ color: 0x5a4a3a }));
-  armR.position.set(2.5, 7.5, 0);
-  g.add(armR);
+  g.add(part(new THREE.SphereGeometry(0.3, 6, 5), coal, 0.6, 11, 0.6));
+  g.add(part(new THREE.SphereGeometry(0.3, 6, 5), coal, -0.6, 11, 0.6));
+  // Stick arms
+  g.add(part(new THREE.BoxGeometry(3, 0.3, 0.3), stick, -2.5, 7.5, 0));
+  g.add(part(new THREE.BoxGeometry(3, 0.3, 0.3), stick, 2.5, 7.5, 0));
+  // Top hat
+  g.add(part(new THREE.CylinderGeometry(1.4, 1.4, 0.3, 10), coal, 0, 12.2, 0));
+  g.add(part(new THREE.CylinderGeometry(1.0, 1.0, 1.6, 10), coal, 0, 13.1, 0));
   return g;
 }, false);
 
@@ -248,15 +242,9 @@ registerProp('sled', {r:4,h:3}, function() {
   const g = new THREE.Group();
   const redMat = new THREE.MeshLambertMaterial({ color: 0xd84040 });
   const metalMat = new THREE.MeshLambertMaterial({ color: 0x7a8a9a });
-  // Flat deck
-  g.add(new THREE.Mesh(new THREE.BoxGeometry(8, 0.8, 3), redMat).position.set(0, 0.8, 0) || g);
-  // Two runners (curved boxes)
-  const runner = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 1), metalMat);
-  runner.position.set(0, 0.3, -1.5);
-  g.add(runner);
-  const runner2 = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 1), metalMat);
-  runner2.position.set(0, 0.3, 1.5);
-  g.add(runner2);
+  g.add(part(new THREE.BoxGeometry(8, 0.8, 3), redMat, 0, 0.8, 0));
+  g.add(part(new THREE.BoxGeometry(8, 0.6, 1), metalMat, 0, 0.3, -1.5));
+  g.add(part(new THREE.BoxGeometry(8, 0.6, 1), metalMat, 0, 0.3, 1.5));
   return g;
 }, false);
 
@@ -383,11 +371,13 @@ function populate(addProp) {
       addProp('snowpine', ...inBlock(96, 0));
       addProp('snowpine', ...inBlock(-33, 0));
       addProp('snowpine', ...inBlock(33, 0));
-      // Snowmen (2-3 per residential block)
-      for (let k = 0; k < 3; k++)
+      // Snowmen + yard gifts
+      for (let k = 0; k < 4; k++)
         addProp('snowman', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 60)));
+      for (let k = 0; k < 5; k++)
+        addProp('giftbox', ...inBlock(rand(-90, 90), pick([-1,1])*rand(10, 70)));
       // Sleds scattered
-      for (let k = 0; k < 2; k++)
+      for (let k = 0; k < 3; k++)
         addProp('sled', ...inBlock(rand(-95, 95), pick([-1,1])*rand(30, 80)));
       for (let k = 0; k < 10; k++)
         addProp('bush', ...inBlock(rand(-95, 95), pick([-1,1])*rand(0, 30)));

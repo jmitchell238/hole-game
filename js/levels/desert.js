@@ -617,88 +617,109 @@ function desertGroundTexture() {
 }
 
 function populate(addProp) {
-  // Town: two rows of 8-12 wood buildings flanking main street
-  const townBuildingCount = 8 + ((Math.random()*4)|0);
-  const buildingSpacing = 60;
-  let buildingIndex = 0;
-  for (let b = 0; b < townBuildingCount; b++) {
-    let x, z;
-    if (townAngle === 0 || townAngle === Math.PI) {
-      // Street runs Z direction
-      z = townZ - 200 + (b / townBuildingCount) * 400;
-      x = townX + (Math.random() < 0.5 ? -120 : 120) + rand(-20, 20);
-    } else {
-      // Street runs X direction
-      x = townX - 200 + (b / townBuildingCount) * 400;
-      z = townZ + (Math.random() < 0.5 ? -120 : 120) + rand(-20, 20);
-    }
-    addProp('woodbuilding', x, z, Math.random() * Math.PI*2);
+  // Town: TWO proper facing rows of buildings (city-street density for a frontier strip)
+  const streetAlongZ = (townAngle === 0 || townAngle === Math.PI);
+  const rowDepth = 110;               // distance from street centerline to facade
+  const buildingsPerSide = 11 + ((Math.random()*3)|0);  // 11–13 per side
+  const streetHalfLen = 260;
 
-    // 50% chance: hitch rail in front of building, between building and street
-    if (Math.random() < 0.5) {
-      let railX, railZ;
-      if (townAngle === 0 || townAngle === Math.PI) {
-        // Street runs Z; rail sits between street edge (±47) and building (±120)
-        railX = townX + (x > townX ? rand(55, 110) : rand(-110, -55));
-        railZ = z;
-      } else {
-        // Street runs X; rail sits between street edge (±47) and building (±120)
-        railX = x;
-        railZ = townZ + (z > townZ ? rand(55, 110) : rand(-110, -55));
-      }
-      addProp('hitchrail', railX, railZ, 0);
+  function placeTownBuilding(along, side, faceAngle) {
+    let x, z;
+    if (streetAlongZ) {
+      z = townZ + along;
+      x = townX + side * rowDepth + rand(-6, 6);
+    } else {
+      x = townX + along;
+      z = townZ + side * rowDepth + rand(-6, 6);
     }
-    buildingIndex++;
+    addProp('woodbuilding', x, z, faceAngle);
+    // Hitch rail + porch clutter between facade and street
+    const hitchOff = rowDepth - 40;
+    if (streetAlongZ) {
+      addProp('hitchrail', townX + side * hitchOff, z, Math.PI/2);
+      if (Math.random() < 0.7) addProp('barrel', townX + side * (hitchOff - 12), z + rand(-8, 8));
+      if (Math.random() < 0.45) addProp('barrel', townX + side * (hitchOff - 18), z + rand(-6, 6));
+    } else {
+      addProp('hitchrail', x, townZ + side * hitchOff, 0);
+      if (Math.random() < 0.7) addProp('barrel', x + rand(-8, 8), townZ + side * (hitchOff - 12));
+      if (Math.random() < 0.45) addProp('barrel', x + rand(-6, 6), townZ + side * (hitchOff - 18));
+    }
   }
 
-  // Water tower beside the street (1-2), offset perpendicular from street axis
-  const wtCount = Math.random() < 0.5 ? 1 : 2;
-  const streetWidth = 80;
-  const wtOffset = streetWidth / 2 + 30 + rand(0, 10);
-  for (let w = 0; w < wtCount; w++) {
-    let x, z;
-    if (townAngle === 0 || townAngle === Math.PI) {
-      // Street runs Z; offset perpendicular in X
-      z = townZ + (w === 0 ? -180 : 180);
-      x = townX + (Math.random() < 0.5 ? wtOffset : -wtOffset);
-    } else {
-      // Street runs X; offset perpendicular in Z
-      x = townX + (w === 0 ? -180 : 180);
-      z = townZ + (Math.random() < 0.5 ? wtOffset : -wtOffset);
+  for (const side of [-1, 1]) {
+    // Face the street: buildings look inward toward centerline
+    const faceAngle = streetAlongZ
+      ? (side < 0 ? Math.PI/2 : -Math.PI/2)
+      : (side < 0 ? 0 : Math.PI);
+    for (let b = 0; b < buildingsPerSide; b++) {
+      const along = -streetHalfLen + (b / (buildingsPerSide - 1)) * (streetHalfLen * 2);
+      placeTownBuilding(along + rand(-4, 4), side, faceAngle);
     }
-    addProp('watertower', x, z, 0);
   }
 
-  // Lantern posts along main street (6-10), sit between building and street edge
-  const lanternCount = 6 + ((Math.random()*4)|0);
-  const lanternOffset = 55 + rand(0, 55);  // Between street edge (47) and building row (120)
+  // Short cross-street of extra shops (makes town feel like a real block, not one strip)
+  const crossCount = 4 + ((Math.random()*2)|0);
+  for (let c = 0; c < crossCount; c++) {
+    const along = -40 + c * 28;
+    if (streetAlongZ) {
+      addProp('woodbuilding', townX + along, townZ + 200, Math.PI);
+      addProp('woodbuilding', townX + along, townZ - 200, 0);
+    } else {
+      addProp('woodbuilding', townX + 200, townZ + along, -Math.PI/2);
+      addProp('woodbuilding', townX - 200, townZ + along, Math.PI/2);
+    }
+  }
+
+  // Water towers at both ends of main street
+  for (const end of [-1, 1]) {
+    if (streetAlongZ) {
+      addProp('watertower', townX + end * 150, townZ + end * 230);
+    } else {
+      addProp('watertower', townX + end * 230, townZ + end * 150);
+    }
+  }
+
+  // Lantern posts both sides of the street
+  const lanternCount = 14;
   for (let l = 0; l < lanternCount; l++) {
-    let x, z;
-    if (townAngle === 0 || townAngle === Math.PI) {
-      // Along Z axis; lanterns alternate sides between street and buildings
-      z = townZ - 250 + (l / lanternCount) * 500;
-      x = townX + (Math.random() < 0.5 ? lanternOffset : -lanternOffset);
-    } else {
-      // Along X axis; lanterns alternate sides
-      x = townX - 250 + (l / lanternCount) * 500;
-      z = townZ + (Math.random() < 0.5 ? lanternOffset : -lanternOffset);
-    }
-    addProp('lanternpost', x, z, 0);
+    const along = -streetHalfLen + (l / (lanternCount - 1)) * (streetHalfLen * 2);
+    const side = (l % 2 === 0) ? -1 : 1;
+    const off = 52;
+    if (streetAlongZ) addProp('lanternpost', townX + side * off, townZ + along);
+    else addProp('lanternpost', townX + along, townZ + side * off);
   }
 
-  // Many people in town and scattered around
-  for (let p = 0; p < 120; p++) {
-    const px = townX + rand(-250, 250);
-    const pz = townZ + rand(-250, 250);
+  // Railroad depot near the tracks
+  {
+    const dx = Math.cos(railroadAngle), dz = Math.sin(railroadAngle);
+    const px = -dz, pz = dx; // perpendicular
+    const depotAlong = rand(-80, 80);
+    const depotX = railroadX + dx * depotAlong + px * 35;
+    const depotZ = railroadZ + dz * depotAlong + pz * 35;
+    addProp('woodbuilding', depotX, depotZ, railroadAngle + Math.PI/2);
+    for (let b = 0; b < 8; b++)
+      addProp('barrel', depotX + rand(-20, 20), depotZ + rand(-20, 20));
+    addProp('wagon', depotX + px * 25, depotZ + pz * 25, railroadAngle);
+    addProp('hitchrail', depotX - px * 18, depotZ - pz * 18, railroadAngle);
+    for (let p = 0; p < 6; p++)
+      addProp('person', depotX + rand(-25, 25), depotZ + rand(-25, 25));
+  }
+
+  // Town square life
+  for (let p = 0; p < 100; p++) {
+    const px = townX + rand(-220, 220);
+    const pz = townZ + rand(-220, 220);
     addProp('person', px, pz);
   }
+  for (let d = 0; d < 14; d++)
+    addProp('dog', townX + rand(-200, 200), townZ + rand(-200, 200));
 
-  // Barrels, horses (longhorns), wagons near town
-  for (let b = 0; b < 40; b++) {
+  // Barrels, longhorns, wagons near town (off the street itself)
+  for (let b = 0; b < 50; b++) {
     let bx, bz, tries = 10;
     do {
-      bx = townX + rand(-250, 250);
-      bz = townZ + rand(-250, 250);
+      bx = townX + rand(-280, 280);
+      bz = townZ + rand(-280, 280);
     } while (tries-- > 0 && (onStreet(bx, bz) || onRail(bx, bz)));
     const roll = Math.random();
     if (roll < 0.4) addProp('barrel', bx, bz, 0);
@@ -786,31 +807,53 @@ function populate(addProp) {
     addProp('traincar', tcx, tcz, railroadAngle);
   }
 
-  // Ranches: fence perimeter + barn + windmill + 3-5 longhorns inside
+  // Ranches: full rectangular corral + barn + house + windmill + cattle
   for (const ranch of ranches) {
-    const ranchR = 120;
-    // Fence perimeter (reuse city fence)
-    for (let f = 0; f < 8; f++) {
-      const angle = (f / 8) * Math.PI*2;
-      const fx = ranch.x + Math.cos(angle) * ranchR;
-      const fz = ranch.z + Math.sin(angle) * ranchR;
-      addProp('fence', fx, fz, angle);
+    const half = 100;
+    // Rectangular fence (city fence segments)
+    for (let t = -half; t <= half; t += 22) {
+      addProp('fence', ranch.x + t, ranch.z - half, 0);
+      addProp('fence', ranch.x + t, ranch.z + half, 0);
+      addProp('fence', ranch.x - half, ranch.z + t, Math.PI/2);
+      addProp('fence', ranch.x + half, ranch.z + t, Math.PI/2);
     }
-    // Barn (woodbuilding)
-    addProp('woodbuilding', ranch.x - 60, ranch.z, 0);
-    // Windmill
-    addProp('windmill', ranch.x + 60, ranch.z, 0);
-    // Longhorns inside ranch
-    const hornCount = 3 + ((Math.random()*2)|0);
-    for (let h = 0; h < hornCount; h++) {
-      const hx = ranch.x + rand(-80, 80);
-      const hz = ranch.z + rand(-80, 80);
-      addProp('longhorn', hx, hz, 0);
-    }
+    addProp('woodbuilding', ranch.x - 45, ranch.z - 30, ranch.ranchAngle);
+    addProp('woodbuilding', ranch.x + 35, ranch.z - 40, ranch.ranchAngle + 0.2);
+    addProp('windmill', ranch.x + 55, ranch.z + 40, 0);
+    addProp('watertower', ranch.x - 60, ranch.z + 50, 0);
+    addProp('hitchrail', ranch.x, ranch.z - 55, ranch.ranchAngle);
+    for (let b = 0; b < 6; b++)
+      addProp('barrel', ranch.x + rand(-50, 50), ranch.z + rand(-50, 50));
+    addProp('wagon', ranch.x + 20, ranch.z + 55, ranch.ranchAngle);
+    const hornCount = 10 + ((Math.random()*5)|0);
+    for (let h = 0; h < hornCount; h++)
+      addProp('longhorn', ranch.x + rand(-75, 75), ranch.z + rand(-75, 75), 0);
+    for (let p = 0; p < 5; p++)
+      addProp('person', ranch.x + rand(-60, 60), ranch.z + rand(-60, 60));
+    for (let d = 0; d < 2; d++)
+      addProp('dog', ranch.x + rand(-50, 50), ranch.z + rand(-50, 50));
   }
 
-  // Mesa rocks scattered across desert
-  const rockCount = 120 + ((Math.random()*80)|0);
+  // Landmark mesa clusters (readable rock formations, not just spray)
+  const mesaClusters = 3 + ((Math.random()*2)|0);
+  for (let m = 0; m < mesaClusters; m++) {
+    let mx, mz, tries = 20;
+    do {
+      mx = rand(-WORLD + 200, WORLD - 200);
+      mz = rand(-WORLD + 200, WORLD - 200);
+    } while (tries-- > 0 && (Math.hypot(mx - townX, mz - townZ) < 350 || onRail(mx, mz)));
+    const rocks = 10 + ((Math.random()*6)|0);
+    for (let r = 0; r < rocks; r++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr = rand(5, 55);
+      addProp('mesa_rock', mx + Math.cos(ang)*rr, mz + Math.sin(ang)*rr, 0);
+    }
+    if (Math.random() < 0.6) addProp('deadtree', mx + rand(-20, 20), mz + rand(-20, 20));
+    if (Math.random() < 0.5) addProp('cactus', mx + rand(-40, 40), mz + rand(-40, 40));
+  }
+
+  // Scattered mesa rocks for landscape fill
+  const rockCount = 70 + ((Math.random()*40)|0);
   for (let r = 0; r < rockCount; r++) {
     let x, z, tries = 10;
     do {

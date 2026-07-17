@@ -322,11 +322,42 @@ registerProp('pier', { r: 13, h: 6 }, function () {
   return g;
 }, true);
 
+// Larger meeting-hall hut for village centers
+registerProp('longhouse', { r: 16, h: 22 }, function () {
+  const g = new THREE.Group();
+  g.add(part(new THREE.BoxGeometry(26, 10, 12), HUT_WALL, 0, 5, 0));
+  g.add(part(new THREE.ConeGeometry(16, 10, 10), THATCH, 0, 14, 0));
+  g.add(part(new THREE.BoxGeometry(4, 6, 0.8), MAT.dark, 0, 3, 6.2));
+  // Side stilts
+  for (const [sx, sz] of [[-10, -4], [10, -4], [-10, 4], [10, 4]])
+    g.add(part(new THREE.CylinderGeometry(0.7, 0.7, 4, 6), MAT.trunk, sx, 2, sz));
+  return g;
+}, true);
+
+// Coastal landmark: striped lighthouse
+registerProp('lighthouse', { r: 10, h: 48 }, function () {
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f6 });
+  const red = new THREE.MeshLambertMaterial({ color: 0xc23a24 });
+  const dark = MAT.dark;
+  g.add(part(new THREE.CylinderGeometry(5.5, 7, 34, 12), white, 0, 17, 0));
+  // Red stripes
+  for (const y of [8, 16, 24])
+    g.add(part(new THREE.CylinderGeometry(5.7, 5.7, 3.2, 12), red, 0, y, 0));
+  // Lantern room + roof
+  g.add(part(new THREE.CylinderGeometry(4.2, 4.2, 6, 10), white, 0, 37, 0));
+  g.add(part(new THREE.CylinderGeometry(3.2, 3.2, 3, 8),
+    new THREE.MeshLambertMaterial({ color: 0xffe08a }), 0, 41, 0));
+  g.add(part(new THREE.ConeGeometry(5.5, 5, 10), red, 0, 45, 0));
+  g.add(part(new THREE.BoxGeometry(2.2, 4, 0.6), dark, 0, 2, 6.5));
+  return g;
+}, true);
+
 // ---- Populate --------------------------------------------------------------------
 function populate(addProp) {
   let chestCount = 0;
-  const chestQuota = 2 + ((Math.random()*2)|0);        // 2–3 chests per map
-  const islets = islands.filter(i => i.R < 60);
+  const chestQuota = 4 + ((Math.random()*2)|0);        // 4–5 chests per map
+  let lighthousePlaced = false;
 
   for (let idx = 0; idx < islands.length; idx++) {
     const isl = islands[idx];
@@ -336,59 +367,92 @@ function populate(addProp) {
 
     if (isl.R >= 130) {                                 // village island
       const isHome = idx === 0;
-      if (!isHome) addProp('fountain', isl.x, isl.z, 0);
-      const huts = 4 + ((Math.random()*3)|0);
-      for (let k = 0; k < huts; k++) {
-        const th = k/huts*Math.PI*2 + rand(-0.25, 0.25);
-        const rr = isl.R * rand(0.3, 0.44);
-        addProp('hut', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr);
+
+      // Village green: fountain or longhouse at center (leave spawn clear)
+      if (!isHome) {
+        addProp('fountain', isl.x, isl.z, 0);
+        addProp('longhouse', isl.x + rand(-18, 18), isl.z + rand(-18, 18), rand(0, Math.PI));
+      } else {
+        // Home: market ring just outside spawn clear zone
+        for (let k = 0; k < 4; k++) {
+          const th = k/4*Math.PI*2 + 0.4;
+          addProp('umbrella', isl.x + Math.cos(th)*52, isl.z + Math.sin(th)*52);
+        }
+        addProp('campfire', isl.x + 40, isl.z);
+        addProp('longhouse', isl.x - 55, isl.z + 10, Math.PI/2);
       }
-      for (let k = 0; k < n(16); k++) {
+
+      // Cottages in two rings (city-like density for a tropical village)
+      const huts = 10 + ((Math.random()*5)|0);           // 10–14
+      for (let k = 0; k < huts; k++) {
+        const th = k/huts*Math.PI*2 + rand(-0.12, 0.12);
+        const rr = isl.R * (0.28 + (k % 2) * 0.12 + rand(0, 0.04));
+        addProp('hut', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, th + Math.PI);
+      }
+
+      // Market stalls / life around the green
+      for (let k = 0; k < n(6); k++) addProp('bench', ...randPointOn(isl, 0.45));
+      for (let k = 0; k < n(5); k++) addProp('umbrella', ...randPointOn(isl, 0.75));
+      for (let k = 0; k < 2; k++) addProp('campfire', ...randPointOn(isl, 0.4));
+      for (let k = 0; k < n(22); k++) {
         const [px, pz] = randPointOn(isl, 0.85);
-        if (isHome && dist(px, pz, isl.x, isl.z) < 45) continue;
+        if (isHome && dist(px, pz, isl.x, isl.z) < 40) continue;
         addProp('person', px, pz);
       }
-      for (let k = 0; k < n(13); k++) addProp('palm', ...randPointOn(isl, 0.9));
-      for (let k = 0; k < n(3); k++)  addProp('tree', ...randPointOn(isl, 0.6));
-      for (let k = 0; k < n(10); k++) addProp('bush', ...randPointOn(isl, 0.8));
-      for (let k = 0; k < n(5); k++)  addProp('rock', ...randPointOn(isl, 0.95));
-      for (let k = 0; k < n(3); k++)  addProp('bench', ...randPointOn(isl, 0.6));
-      for (let k = 0; k < n(2); k++)  addProp('dog', ...randPointOn(isl, 0.8));
+      for (let k = 0; k < n(22); k++) addProp('palm', ...randPointOn(isl, 0.92));
+      for (let k = 0; k < n(6); k++)  addProp('tree', ...randPointOn(isl, 0.55));
+      for (let k = 0; k < n(16); k++) addProp('bush', ...randPointOn(isl, 0.82));
+      for (let k = 0; k < n(8); k++)  addProp('rock', ...randPointOn(isl, 0.96));
+      for (let k = 0; k < n(4); k++)  addProp('dog', ...randPointOn(isl, 0.8));
+      for (let k = 0; k < n(4); k++)  addProp('driftwood', ...randPointOn(isl, 0.96));
 
-      // New props for villages
-      for (let k = 0; k < n(3); k++) addProp('umbrella', ...randPointOn(isl, 0.9));
-      for (let k = 0; k < n(2); k++) addProp('driftwood', ...randPointOn(isl, 0.95));
-      addProp('campfire', ...randPointOn(isl, 0.5));
+      // 1–2 piers with boats stacked at the dock
+      const pierCount = 1 + (Math.random() < 0.55 ? 1 : 0);
+      for (let p = 0; p < pierCount; p++) {
+        const th = (p / pierCount) * Math.PI * 2 + rand(-0.2, 0.2) + (isHome ? 0.8 : 0);
+        const rr = shoreR(isl, th) * 1.05;
+        addProp('pier', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, -th);
+        for (let b = 0; b < 2; b++) {
+          const boatRr = rr + 12 + b * 10;
+          addProp('boat', isl.x + Math.cos(th)*boatRr, isl.z + Math.sin(th)*boatRr, -th + rand(-0.2, 0.2));
+        }
+      }
 
-      // Pier at random shore angle, pointing out to sea
-      const th = rand(0, Math.PI*2);
-      const rr = shoreR(isl, th) * 1.05;
-      addProp('pier', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, -th);
-      // Boat moored at pier far end (inside lagoon if atoll, offshore otherwise)
-      const boatRr = rr + 15;
-      addProp('boat', isl.x + Math.cos(th)*boatRr, isl.z + Math.sin(th)*boatRr, -th);
+      // One lighthouse on the first large non-home village (or home if none)
+      if (!lighthousePlaced && (idx === 1 || (idx === 0 && islands.filter(i => i.R >= 130).length === 1))) {
+        const th = rand(0, Math.PI*2);
+        const rr = shoreR(isl, th) * 0.72;
+        addProp('lighthouse', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, -th);
+        lighthousePlaced = true;
+      }
 
     } else if (isl.R >= 60) {                           // palm-grove island
-      for (let k = 0; k < n(10); k++) addProp('palm', ...randPointOn(isl, 0.9));
-      for (let k = 0; k < n(8); k++)  addProp('bush', ...randPointOn(isl, 0.8));
-      for (let k = 0; k < n(3); k++)  addProp('rock', ...randPointOn(isl, 0.95));
-      for (let k = 0; k < n(5); k++)  addProp('person', ...randPointOn(isl, 0.8));
-      for (let k = 0; k < n(2); k++)  addProp('tree', ...randPointOn(isl, 0.6));
-      addProp('dog', ...randPointOn(isl, 0.7));
-      if (isl.R > 90) addProp('hut', ...randPointOn(isl, 0.4));
-
-      // Groves: 1–2 umbrellas, 40% get a campfire
-      addProp('umbrella', ...randPointOn(isl, 0.85));
-      if (Math.random() < 0.4) addProp('campfire', ...randPointOn(isl, 0.5));
+      for (let k = 0; k < n(20); k++) addProp('palm', ...randPointOn(isl, 0.92));
+      for (let k = 0; k < n(14); k++) addProp('bush', ...randPointOn(isl, 0.85));
+      for (let k = 0; k < n(6); k++)  addProp('rock', ...randPointOn(isl, 0.96));
+      for (let k = 0; k < n(8); k++)  addProp('person', ...randPointOn(isl, 0.8));
+      for (let k = 0; k < n(4); k++)  addProp('tree', ...randPointOn(isl, 0.55));
+      for (let k = 0; k < n(2); k++)  addProp('dog', ...randPointOn(isl, 0.7));
+      // Beach camp cluster
+      addProp('hut', ...randPointOn(isl, 0.35));
+      if (isl.R > 85) addProp('hut', ...randPointOn(isl, 0.4));
+      for (let k = 0; k < 3; k++) addProp('umbrella', ...randPointOn(isl, 0.88));
+      addProp('campfire', ...randPointOn(isl, 0.45));
+      for (let k = 0; k < 2; k++) addProp('driftwood', ...randPointOn(isl, 0.95));
+      if (Math.random() < 0.35 && !lighthousePlaced) {
+        addProp('lighthouse', ...randPointOn(isl, 0.55));
+        lighthousePlaced = true;
+      }
 
     } else {                                            // rocky islet
       addProp('palm', isl.x + rand(-6, 6), isl.z + rand(-6, 6));
-      addProp('rock', ...randPointOn(isl, 0.6));
-      if (Math.random() < 0.6) addProp('rock', ...randPointOn(isl, 0.7));
-      if (Math.random() < 0.5) addProp('person', ...randPointOn(isl, 0.5));
+      for (let k = 0; k < 2 + ((Math.random()*2)|0); k++)
+        addProp('rock', ...randPointOn(isl, 0.7));
+      if (Math.random() < 0.55) addProp('person', ...randPointOn(isl, 0.5));
+      if (Math.random() < 0.45) addProp('driftwood', ...randPointOn(isl, 0.8));
 
       // Islets may hold treasure chests
-      if (chestCount < chestQuota && Math.random() < 0.4) {
+      if (chestCount < chestQuota && Math.random() < 0.55) {
         addProp('chest', ...randPointOn(isl, 0.5));
         chestCount++;
       }
@@ -396,40 +460,55 @@ function populate(addProp) {
 
     // Boats moored just offshore (not atolls).
     if (!isl.atoll && isl.R >= 60) {
-      const nb = 2 + ((Math.random()*2)|0);
+      const nb = 3 + ((Math.random()*2)|0);
       for (let k = 0; k < nb; k++) {
         const th = rand(0, Math.PI*2);
-        const rr = shoreR(isl, th) * rand(1.15, 1.35);
+        const rr = shoreR(isl, th) * rand(1.12, 1.32);
         addProp('boat', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, -th);
       }
     }
   }
 
-  // Atoll props: ring band only (0.6–0.95 frac), lagoon boats
+  // Atolls: dense ring of palms/rocks, lagoon fleet, occasional hut
   for (const isl of islands.filter(i => i.atoll)) {
-    for (let k = 0; k < 3; k++) {
-      const [px, pz] = randPointOn(isl, 0.75);
-      addProp('palm', px, pz);
+    for (let k = 0; k < 10; k++) {
+      const th = k/10*Math.PI*2 + rand(-0.1, 0.1);
+      const rr = shoreR(isl, th) * rand(0.68, 0.9);
+      addProp('palm', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr);
     }
-    for (let k = 0; k < 2; k++) {
-      const [rx, rz] = randPointOn(isl, 0.7);
+    for (let k = 0; k < 6; k++) {
+      const [rx, rz] = randPointOn(isl, 0.82);
       addProp('rock', rx, rz);
     }
-    // 1–2 boats inside lagoon (at ~0.3×shore)
-    const boatCount = Math.random() < 0.5 ? 1 : 2;
+    for (let k = 0; k < 3; k++) addProp('bush', ...randPointOn(isl, 0.8));
+    if (Math.random() < 0.65) addProp('hut', ...randPointOn(isl, 0.78));
+    if (Math.random() < 0.5) addProp('campfire', ...randPointOn(isl, 0.75));
+    const boatCount = 2 + ((Math.random()*2)|0);
     for (let b = 0; b < boatCount; b++) {
-      const [bx, bz] = randPointOn(isl, 0.3);
+      const [bx, bz] = randPointOn(isl, 0.32);
       addProp('boat', bx, bz);
+    }
+    // Outer reef boats
+    for (let b = 0; b < 2; b++) {
+      const th = rand(0, Math.PI*2);
+      const rr = shoreR(isl, th) * 1.2;
+      addProp('boat', isl.x + Math.cos(th)*rr, isl.z + Math.sin(th)*rr, -th);
     }
   }
 
-  // Open water boats: 10 → 28 (same clearance logic)
-  for (let k = 0; k < 28; k++) {
+  // Guarantee a lighthouse somewhere if none placed yet
+  if (!lighthousePlaced) {
+    const big = islands.find(i => !i.atoll && i.R >= 90) || islands[0];
+    addProp('lighthouse', ...randPointOn(big, 0.55));
+  }
+
+  // Open-water boats (keep ocean readable, not empty)
+  for (let k = 0; k < 34; k++) {
     let x, z, tries = 40;
     do {
       x = rand(-WORLD + 60, WORLD - 60);
       z = rand(-WORLD + 60, WORLD - 60);
-    } while (tries-- > 0 && islands.some(i => dist(x, z, i.x, i.z) < i.R*1.5));
+    } while (tries-- > 0 && islands.some(i => dist(x, z, i.x, i.z) < i.R*1.45));
     addProp('boat', x, z);
   }
 }

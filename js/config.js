@@ -1,6 +1,6 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
-const GAME_VERSION = 'v28';   // keep in sync with CACHE in sw.js
+const GAME_VERSION = 'v29';   // keep in sync with CACHE in sw.js
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;
