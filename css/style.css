@@ -97,8 +97,8 @@ canvas.dragging { cursor: grabbing; }
   vertical-align: -3px; }
 .setting select { background:#161b22; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:4px 8px; font-size:14px; }
 .danger { color: #ff7a7a !important; }
-#versionTag { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); font-size: 11px; font-weight: 600; color: #fff; opacity: .32; pointer-events: none; letter-spacing: .5px; }
-.versionLine { margin-top: 18px; font-size: 12px; opacity: .5; }
+#versionTag { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 5; font-size: 12px; font-weight: 600; color: #fff; opacity: .55; text-shadow: 0 1px 3px rgba(0,0,0,.65); pointer-events: none; letter-spacing: .5px; }
+.versionLine { margin-top: 18px; font-size: 13px; opacity: .65; letter-spacing: .3px; }
 
 #joy { position: absolute; width: 110px; height: 110px; border-radius: 50%;
   border: 1px solid #30363d; background: rgba(22,27,34,.35); pointer-events: none;

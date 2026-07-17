@@ -310,27 +310,75 @@ if (location.search.includes('debug=1')) {
 }
 
 // Installable PWA: cache the game for offline play (needs HTTPS, so this is
-// a no-op when opening the file directly).
+// a no-op when opening the file directly). Auto-updates without reinstall:
+// new SW installs even if some assets fail, claims clients, and reloads the
+// menu; network-first shell/code so the next open is never stuck on stale JS.
+function safeReloadForUpdate() {
+  if (window.__reloaded) return;
+  if (running && !paused) {
+    window.__pendingReload = true;
+    return;
+  }
+  window.__reloaded = true;
+  location.reload();
+}
+
+function activateWaitingWorker(reg) {
+  if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+}
+
+function watchInstallingWorker(reg) {
+  const worker = reg.installing;
+  if (!worker) return;
+  worker.addEventListener('statechange', () => {
+    // A new worker finished installing while we already have a controller —
+    // force it to activate so controllerchange can reload us.
+    if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    }
+  });
+}
+
 if ('serviceWorker' in navigator &&
     (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
-    // Check for updates immediately, on visibility change, and every 30 minutes
-    reg.update();
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) reg.update();
-    });
-    setInterval(() => reg.update(), 30 * 60 * 1000);
+    // If a previous open left a waiting worker, activate it now.
+    activateWaitingWorker(reg);
+    if (reg.installing) watchInstallingWorker(reg);
 
-    // Auto-reload when a new worker takes over, but guard against mid-match reload
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (running && !paused) {
-        window.__pendingReload = true;
-        return;
-      }
-      if (!window.__reloaded) {
-        window.__reloaded = true;
-        location.reload();
-      }
+    reg.addEventListener('updatefound', () => watchInstallingWorker(reg));
+
+    // Check for updates immediately, whenever the app is shown, and often
+    // while sitting on the menu (iOS home-screen PWAs are lazy otherwise).
+    const checkForUpdate = () => { reg.update().catch(() => {}); };
+    checkForUpdate();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkForUpdate();
     });
+    window.addEventListener('focus', checkForUpdate);
+    setInterval(checkForUpdate, 60 * 1000);
+
+    // Auto-reload when a new worker takes over (not mid-active match).
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      safeReloadForUpdate();
+    });
+  }).catch(err => console.warn('[sw] register failed', err));
+
+  // Hard fallback: if the shell is somehow still on an old build while the
+  // network has a newer GAME_VERSION, reload once from the menu.
+  function checkRemoteVersion() {
+    if (running && !paused) return;
+    fetch('js/config.js', { cache: 'no-store' })
+      .then(r => r.ok ? r.text() : '')
+      .then(text => {
+        const m = text.match(/GAME_VERSION\s*=\s*['"]([^'"]+)['"]/);
+        if (m && m[1] && m[1] !== GAME_VERSION) safeReloadForUpdate();
+      })
+      .catch(() => {});
+  }
+  checkRemoteVersion();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkRemoteVersion();
   });
+  setInterval(checkRemoteVersion, 2 * 60 * 1000);
 }

@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'voidrush-v27';
+const CACHE = 'voidrush-v28';
 const ASSETS = [
   './',
   './index.html',
@@ -90,9 +90,21 @@ const ASSETS = [
   './art/models/citybits/watertower.bin',
 ];
 
+// Cache each URL individually so one missing/optional asset cannot abort
+// the entire install (addAll is all-or-nothing and was blocking updates).
+function precacheAll(cache) {
+  return Promise.allSettled(
+    ASSETS.map(url =>
+      cache.add(url).catch(err => {
+        console.warn('[sw] precache failed:', url, err);
+      })));
+}
+
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+    caches.open(CACHE)
+      .then(precacheAll)
+      .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -102,31 +114,56 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim()));
 });
 
-// Network-first for navigations and sw-critical files; cache-first for everything else.
+// Client can force activation of a waiting worker
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+function sameOrigin(url) {
+  try { return new URL(url).origin === self.location.origin; }
+  catch (_) { return false; }
+}
+
+function networkFirst(request) {
+  return fetch(request).then(res => {
+    if (res.ok && sameOrigin(request.url)) {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(request, copy));
+    }
+    return res;
+  }).catch(() => caches.match(request).then(hit => hit || Response.error()));
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then(hit => hit ||
+    fetch(request).then(res => {
+      if (res.ok && sameOrigin(request.url)) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(request, copy));
+      }
+      return res;
+    }));
+}
+
+// Game code + shell: network-first so updates apply without reinstall.
+// Art/models/vendor: cache-first for offline/speed.
+function isShellOrCode(url) {
+  const path = new URL(url).pathname;
+  if (path.endsWith('/sw.js')) return true;
+  if (path.endsWith('.html') || path.endsWith('/')) return true;
+  if (path.includes('/css/')) return true;
+  if (path.includes('/js/') && !path.includes('/js/vendor/')) return true;
+  if (path.endsWith('manifest.webmanifest')) return true;
+  return false;
+}
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
 
-  // Network-first for navigations and sw-critical files
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request).then(res => {
-        if (res.ok && new URL(e.request.url).origin === location.origin) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match(e.request)));
+  if (e.request.mode === 'navigate' || isShellOrCode(e.request.url)) {
+    e.respondWith(networkFirst(e.request));
     return;
   }
 
-  // Cache-first for everything else
-  e.respondWith(
-    caches.match(e.request).then(hit => hit ||
-      fetch(e.request).then(res => {
-        if (res.ok && new URL(e.request.url).origin === location.origin) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return res;
-      })));
+  e.respondWith(cacheFirst(e.request));
 });
