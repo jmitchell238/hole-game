@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump with GAME_VERSION in js/config.js (MAJOR.MINOR.PATCH).
-const CACHE = 'voidrush-2.35.002';
+const CACHE = 'voidrush-2.36.001';
 const ASSETS = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const ASSETS = [
   './js/cosmetics.js',
   './js/hole.js',
   './js/levels/city.js',
+  './js/levels/city-test.js',
   './js/levels/island.js',
   './js/levels/winter.js',
   './js/levels/desert.js',
