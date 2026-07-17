@@ -329,8 +329,11 @@ function populate(addProp) {
           const skyType = Math.random() < 0.5 ? 'skyrise' : 'skyrise2';
           wrappedAddProp(skyType, cx + dx, cz + dz, 0);
         }
-        // Reduce small props in core for better sightlines
-        wrappedAddProp('apartment', ...inBlock(-80, 80));
+        // Add 2 apartments and 2 shops away from skyrises for density
+        wrappedAddProp('apartment', ...inBlock(-30, 0));
+        wrappedAddProp('apartment', ...inBlock(30, 0));
+        wrappedAddProp('shop', ...inBlock(0, -75), Math.PI/2);
+        wrappedAddProp('shop', ...inBlock(0, 75), -Math.PI/2);
         for (let k = 0; k < 8; k++)
           wrappedAddProp('person', ...inBlock(rand(-60, 60),
             (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
@@ -338,16 +341,22 @@ function populate(addProp) {
         wrappedAddProp('bench', ...inBlock(-30, 40), Math.PI);
         wrappedAddProp('bench', ...inBlock(30, -40), 0);
       } else {
-        // Non-core downtown: standard tower + 30% chance of skyrise
+        // Non-core downtown: denser layout with tower at center, 2 apartments, 5-6 shops
         wrappedAddProp('tower', cx, cz, 0);
-        if (Math.random() < 0.3) {
-          const skyType = Math.random() < 0.5 ? 'skyrise' : 'skyrise2';
-          wrappedAddProp(skyType, cx + rand(-70, 70), cz + rand(-70, 70), 0);
-        }
-        wrappedAddProp('apartment', ...inBlock(-80, 80));
-        wrappedAddProp('shop', ...inBlock(-80, -80));
-        wrappedAddProp('shop', ...inBlock(80, -80), Math.PI/2);
-        wrappedAddProp('shop', ...inBlock(80, 80), Math.PI);
+
+        // 2 apartments on perpendicular axes (avoiding corner shops) with small jitter
+        const apOff = BLOCK/2 - 40;
+        wrappedAddProp('apartment', ...inBlock(-apOff + rand(-5, 5), 0 + rand(-5, 5)));
+        wrappedAddProp('apartment', ...inBlock(apOff + rand(-5, 5), 0 + rand(-5, 5)));
+
+        // 5-6 shops: 3 original corners + 3 new shops avoiding apartment positions
+        wrappedAddProp('shop', ...inBlock(-80 + rand(-5, 5), -80 + rand(-5, 5)));
+        wrappedAddProp('shop', ...inBlock(80 + rand(-5, 5), -80 + rand(-5, 5)), Math.PI/2);
+        wrappedAddProp('shop', ...inBlock(80 + rand(-5, 5), 80 + rand(-5, 5)), Math.PI);
+        wrappedAddProp('shop', ...inBlock(0 + rand(-5, 5), 70 + rand(-5, 5)), 0);
+        wrappedAddProp('shop', ...inBlock(-60 + rand(-5, 5), 50 + rand(-5, 5)), Math.PI);
+        wrappedAddProp('shop', ...inBlock(60 + rand(-5, 5), -50 + rand(-5, 5)), 0);
+
         for (let k = 0; k < 12; k++)
           wrappedAddProp('person', ...inBlock(rand(-40, 100),
             (Math.random() < 0.5 ? -1 : 1) * rand(70, 100)));
@@ -377,6 +386,11 @@ function populate(addProp) {
       } else {
         wrappedAddProp('house', cx + rand(-4, 4), cz - 58, Math.PI);
         wrappedAddProp('house', cx + rand(-4, 4), cz + 58, 0);
+      }
+      // Add 2 extra houses at mid-edge gaps if BLOCK is large enough (on center line to avoid existing houses)
+      if (BLOCK > 240) {
+        wrappedAddProp('house', cx - (BLOCK/2 - 40) + rand(-4, 4), cz + rand(-4, 4), Math.PI/2);
+        wrappedAddProp('house', cx + (BLOCK/2 - 40) + rand(-4, 4), cz + rand(-4, 4), -Math.PI/2);
       }
       for (const fx of [-84, -58, -30, 30, 58, 84]) wrappedAddProp('fence', cx + fx, cz, 0);
       wrappedAddProp('tree', ...inBlock(-96, 0));
