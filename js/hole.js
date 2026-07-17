@@ -87,7 +87,7 @@ function makeHole(x, z, name, isPlayer) {
     new THREE.RingGeometry(0.88, 1.06, HOLE_SEG),
     new THREE.MeshBasicMaterial({ color: ringColor, fog: false }));
   ring.rotation.x = -Math.PI / 2;
-  ring.position.set(x, 0.22 + Math.random() * 0.06, z);
+  ring.position.set(x, 0.22, z);
   scene.add(wall); scene.add(cap); scene.add(mouth); scene.add(ring);
 
   // Ghost ring (desktop only — depthTest:false is costly on A9X)
@@ -110,7 +110,7 @@ function makeHole(x, z, name, isPlayer) {
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
   return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: 12, name, isPlayer,
-    tx: x, tz: z, retarget: 0, _ringLv: 1,
+    tx: x, tz: z, retarget: 0, _ringLv: 1, _ringJitter: Math.random() * 0.06,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }
 
@@ -176,6 +176,11 @@ function syncHole(h) {
     h.ghost.scale.set(s, s, s);
     h.ghost.position.x = h.x; h.ghost.position.z = h.z;
   }
+
+  // Scale y-offsets with radius to prevent z-fighting at large sizes
+  if (h.mouth) h.mouth.position.y = 0.04 + s * 0.010;
+  h.ring.position.y = 0.22 + (h._ringJitter || 0) + s * 0.014;
+  if (h.ghost) h.ghost.position.y = 0.30 + s * 0.018;
 
   // Rebuild ring geometry when sizeLevel changes (not every frame)
   const currentLv = sizeLevel(h.r);
