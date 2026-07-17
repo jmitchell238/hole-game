@@ -296,6 +296,8 @@ buildLevelSelect();
 updatePlayTab();
 updateGold();
 updateLevelInfo();
+document.getElementById('versionTag').textContent = 'VoidRush ' + GAME_VERSION;
+document.getElementById('versionSetting').textContent = 'VoidRush ' + GAME_VERSION;
 
 // Debug unlock via URL parameter
 if (location.search.includes('debug=1')) {

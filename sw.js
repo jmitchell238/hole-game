@@ -1,6 +1,6 @@
 // Service worker: caches the whole game so it loads instantly and works
 // offline once installed. Bump the version string whenever files change.
-const CACHE = 'voidrush-v26';
+const CACHE = 'voidrush-v27';
 const ASSETS = [
   './',
   './index.html',
