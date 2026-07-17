@@ -480,11 +480,20 @@ const BUILDERS = {
 // Spawn one prop into the world (levels call this from populate()).
 function addProp(name, x, z, rotY) {
   const s = STATS[name];
+  if (!s || !BUILDERS[name]) {
+    console.warn('[props] unknown prop', name);
+    return;
+  }
   const mesh = BUILDERS[name]();
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY !== undefined ? rotY : rand(0, Math.PI*2);
-  if (SHADOW_CASTERS.has(name))
-    mesh.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  // Skip shadow setup entirely when shadows are off (saves traverse cost)
+  if (SAVE.shadows && SHADOW_CASTERS.has(name))
+    mesh.traverse(m => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = true; } });
+  else
+    mesh.traverse(m => { if (m.isMesh) m.frustumCulled = true; });
+  // Matrix auto-update stays on (props move when falling); static props could
+  // freeze matrices but falling starts mid-match so leave default.
   scene.add(mesh);
   objects.push({ mesh, x, z, r: s.r, h: s.h, vy: 0,
     falling: false, hole: null, dead: false });

@@ -1,6 +1,6 @@
 // Game-wide constants, math helpers, the level registry, and shared game state.
 
-const GAME_VERSION = 'v29';   // keep in sync with CACHE in sw.js
+const GAME_VERSION = 'v30';   // keep in sync with CACHE in sw.js
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
 const GROW = 0.8;
@@ -9,6 +9,31 @@ const GRAVITY = 110;              // fall acceleration into the hole
 const HOLE_DEPTH = 150;           // how deep the visible pit goes
 const BOT_NAMES = ['xX_Reaper','mossy','GulpLord','Tina','pixelpete','NovaCat',
   'bigmike','quinn','404notfound','senpai','DustBunny','Vortex'];
+
+// ---- Device / graphics quality ----------------------------------------------
+// iPad/iPhone home-screen PWAs report as desktop Safari sometimes; touch points
+// catch those. This drives cheaper ground rebuilds, textures, and shadows.
+const IS_TOUCH = ('ontouchstart' in window) ||
+  (navigator.maxTouchPoints && navigator.maxTouchPoints > 1) ||
+  /iPad|iPhone|iPod|Android/i.test(navigator.userAgent || '');
+const GFX = {
+  mobile: IS_TOUCH,
+  // Retina iPads at 2× fill 4× the pixels — biggest GPU cost after the ground.
+  pixelRatio: IS_TOUCH ? 1 : Math.min(1.5, window.devicePixelRatio || 1),
+  antialias: !IS_TOUCH,
+  shadowMapSize: IS_TOUCH ? 512 : 1024,
+  softShadows: !IS_TOUCH,
+  // ShapeGeometry curve segments per hole cutout
+  groundCurve: IS_TOUCH ? 10 : 16,
+  // Max side for procedural canvas textures (levels request 4096)
+  maxTexSize: IS_TOUCH ? 2048 : 4096,
+  anisotropy: IS_TOUCH ? 1 : 4,
+  // How far (world units) a hole must move before we re-punch the ground
+  groundMoveEps: IS_TOUCH ? 1.2 : 0.6,
+  groundRadiusEps: 0.15,
+  // Hide prop meshes beyond this multiple of fog.far (distance cull)
+  cullFogMul: 0.92,
+};
 
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
 function isBattleLevel(n) { return n % BATTLE_EVERY === 0; }

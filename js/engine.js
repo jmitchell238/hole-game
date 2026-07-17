@@ -1,11 +1,18 @@
 // Renderer, scene, camera, lights, and the ground mesh (with holes punched out).
 // Sky / fog / light colors come from the active level via applyEnvironment().
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+const renderer = new THREE.WebGLRenderer({
+  antialias: GFX.antialias,
+  powerPreference: 'high-performance',
+  // Prefer no alpha compositing cost over the page background
+  alpha: false,
+});
+renderer.setPixelRatio(GFX.pixelRatio);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = GFX.softShadows
+  ? THREE.PCFSoftShadowMap
+  : THREE.BasicShadowMap;
 const frameEl = document.getElementById('frame');
 frameEl.appendChild(renderer.domElement);
 
@@ -35,9 +42,13 @@ const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7a9a6a, 0.85);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 1.0);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(GFX.shadowMapSize, GFX.shadowMapSize);
+// Tighter shadow frustum = sharper + cheaper on tablets
+const shadowSpan = GFX.mobile ? 280 : 400;
 Object.assign(sun.shadow.camera,
-  { left: -450, right: 450, top: 450, bottom: -450, near: 50, far: 1600 });
+  { left: -shadowSpan, right: shadowSpan, top: shadowSpan, bottom: -shadowSpan,
+    near: 50, far: GFX.mobile ? 1200 : 1600 });
+sun.shadow.bias = -0.0005;
 scene.add(sun);
 scene.add(sun.target);
 
@@ -51,18 +62,32 @@ function applyEnvironment(level) {
 }
 
 // ---- Procedural textures (no downloads — everything is generated) -------------
+// On tablets, downscale huge 4k canvases so the GPU isn't fed 16MB+ textures.
 function canvasTex(w, h, draw) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  draw(c.getContext('2d'), w, h);
+  const max = GFX.maxTexSize;
+  const tw = Math.min(w, max), th = Math.min(h, max);
+  const c = document.createElement('canvas');
+  c.width = tw; c.height = th;
+  const ctx = c.getContext('2d');
+  if (tw !== w || th !== h) {
+    ctx.scale(tw / w, th / h);
+  }
+  draw(ctx, w, h);
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = 4;
+  t.anisotropy = GFX.anisotropy;
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
   return t;
 }
 
 // ---- Ground -------------------------------------------------------------------
 let ground = null;
 let skirt = null;
+// Cache of last hole pose used to build geometry — skip rebuilds when idle.
+let _groundSig = '';
+let _groundForce = true;
 
 // Side walls under the map edge, as deep as the pits go, so the world reads
 // as a solid slab — without them the pit tube shows as a floating black blob
@@ -101,14 +126,43 @@ function buildGround(level) {
   ground = new THREE.Mesh(new THREE.BufferGeometry(),
     new THREE.MeshLambertMaterial({ map: gtex }));
   ground.rotation.x = -Math.PI/2;
-  ground.receiveShadow = true;
+  ground.receiveShadow = !!SAVE.shadows;
+  // Ground is huge; never cast shadows from it
+  ground.castShadow = false;
   scene.add(ground);
+  _groundForce = true;
+  _groundSig = '';
   refreshGround();
+}
+
+// Quantized signature of every hole's pose. Rebuild only when it changes.
+function groundSignature() {
+  // Coarser quantization on mobile → fewer rebuilds while moving
+  const mq = GFX.groundMoveEps;
+  const rq = GFX.groundRadiusEps;
+  let s = holes.length + '|';
+  for (let i = 0; i < holes.length; i++) {
+    const h = holes[i];
+    s += (h.x / mq | 0) + ',' + (h.z / mq | 0) + ',' + (h.r / rq | 0) + ';';
+  }
+  return s;
 }
 
 // Rebuild the ground with a real hole punched out for every mouth,
 // so you can look down inside the pits.
-function refreshGround() {
+// Call with force=true after match start / hole removed; otherwise only
+// rebuilds when a hole has moved/grown past the quantization threshold.
+function refreshGround(force) {
+  if (!ground || !currentLevel) return;
+  if (!force && !_groundForce) {
+    const sig = groundSignature();
+    if (sig === _groundSig) return;
+    _groundSig = sig;
+  } else {
+    _groundForce = false;
+    _groundSig = groundSignature();
+  }
+
   const W = currentLevel.world;
   const shape = new THREE.Shape();
   shape.moveTo(-W, -W);
@@ -131,7 +185,7 @@ function refreshGround() {
     p.absarc(h.x, -h.z, r, 0, Math.PI*2, true);
     shape.holes.push(p);
   }
-  const geo = new THREE.ShapeGeometry(shape, 32);
+  const geo = new THREE.ShapeGeometry(shape, GFX.groundCurve);
   if (ground.geometry) ground.geometry.dispose();
   ground.geometry = geo;
 }

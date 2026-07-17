@@ -152,7 +152,9 @@ const shadowsChk = document.getElementById('shadowsChk');
 shadowsChk.checked = SAVE.shadows;
 shadowsChk.onchange = () => {
   SAVE.shadows = shadowsChk.checked;
+  SAVE._shadowsMigratedV30 = true; // user made an explicit choice
   persistSave();
+  if (typeof applyGfxSettings === 'function') applyGfxSettings();
 };
 const controlsSel = document.getElementById('controlsSel');
 controlsSel.value = SAVE.controls;

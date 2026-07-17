@@ -51,17 +51,32 @@ function update(dt) {
   for (const h of holes) {
     if (!h.isPlayer) {
       h.retarget -= dt;
-      if (h.retarget <= 0) { botThink(h); h.retarget = rand(0.3, 0.8); }
+      // Bots re-plan less often on tablets (AI is O(objects))
+      if (h.retarget <= 0) {
+        botThink(h);
+        h.retarget = GFX.mobile ? rand(0.55, 1.1) : rand(0.3, 0.8);
+      }
     }
     moveHole(h, dt);
   }
 
-  refreshGround();   // re-punch the mouths into the ground as holes move/grow
+  // Only re-triangulate the ground when a hole has moved/grown enough.
+  // Rebuilding ShapeGeometry every frame was the #1 iPad hitch.
+  refreshGround(false);
 
   // Swallowing. An object only starts falling once its whole footprint is
   // inside the hole's mouth, then drops under gravity. The rim is a hard
   // wall — nothing clips through the edge — and it only counts (and grows
   // the hole) once it is fully below the surface.
+  //
+  // Broad-phase: skip props that are farther than the largest hole's reach
+  // (huge win on dense maps with 2k+ props).
+  let maxReach = 0;
+  for (const h of holes) {
+    if (h.r > maxReach) maxReach = h.r;
+  }
+  maxReach += 40; // small prop radius pad
+
   for (const ob of objects) {
     if (ob.falling) {
       const h = ob.hole;
@@ -92,6 +107,15 @@ function update(dt) {
       }
       continue;
     }
+    // Cheap reject before testing every hole
+    let near = false;
+    for (const h of holes) {
+      if (Math.abs(ob.x - h.x) <= maxReach && Math.abs(ob.z - h.z) <= maxReach) {
+        near = true; break;
+      }
+    }
+    if (!near) continue;
+
     for (const h of holes) {
       if (canEat(h, ob.r) &&
           dist(h.x, h.z, ob.x, ob.z) + ob.r <= h.r) {  // fully inside the mouth
@@ -128,6 +152,7 @@ function update(dt) {
     if (eaten.length) {
       for (const h of eaten) removeHole(h);
       holes = holes.filter(h => !h.eaten);
+      refreshGround(true);   // hole removed → force new cutouts
       if (player.eaten) { endMatch(); return; }
     }
 
