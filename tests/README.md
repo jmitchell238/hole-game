@@ -21,6 +21,36 @@ Uses Node's native `test`/`describe`/`assert` (no npm dependencies). Exit code 0
 - **core.test.js**: sizeLevel, growRadius, canEatR, maxHoleRadiusFor, soloTargetPct, soloReward, battleReward, isBattleLevel, mulberry32, rand, pick, checkinToday, exported constants
 - **consistency.test.js**: index.html <script> paths exist; sw.js CACHE matches GAME_VERSION; ASSETS entries exist; level files have registerLevel + required keys; tests/perf/budgets.json matches perf-suite.js (ignoring _* metadata keys)
 
+## Smoke / integration (`tests/integration`)
+
+Per-level integration smoke tests: every level boots, props get eaten, solo-win and battle-elimination paths fire, zero console errors.
+
+### Run
+
+From the repo root (WSL):
+
+```bash
+bash tests/integration/run-smoke.sh
+```
+
+Or open `tests/integration/smoke-levels.html` in a desktop browser and read the on-page log / console.
+
+### Output
+
+- `SMOKE <levelId> boot props=<N>` — level booted with N props
+- `SMOKE <levelId> eaten=<N> grewTo=<R>` — ate N props, grew to radius R
+- `SMOKE solo_win soloWon=true` — solo win path triggered
+- `SMOKE solo_win match_ended` — endMatch completed
+- `SMOKE battle_elimination bot_eaten holes_eliminated=<N>` — battle elimination path triggered
+- `SMOKE RESULT pass|fail` — suite summary
+
+### Coverage
+
+- **Boot**: all 6 levels (city, city-test, desert, island, medieval, winter) initialize without error
+- **Eating**: ground-level props are consumed, hole radius grows
+- **Solo win**: city level solo path triggers at devour threshold, endMatch completes
+- **Battle elimination**: city level battle mode spawns 5 bots, player can eat a bot when sufficiently larger, hole-vs-hole elimination removes the bot
+
 ## Perf / integration (`tests/perf`)
 
 Measures init, `update`, `render`, and **how many props stay parented to the scene** as the hole (camera) grows. Late-game lag is mostly “everything still drawn when zoomed out” — these budgets catch that.

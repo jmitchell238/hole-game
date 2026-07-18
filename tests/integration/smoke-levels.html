@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VoidRush smoke suite</title>
+  <style>
+    body { margin: 0; background: #0d1117; color: #e6edf3; font: 13px/1.4 ui-monospace, monospace; }
+    #log { padding: 12px; white-space: pre-wrap; }
+    #frame { position: fixed; inset: 0; opacity: 0.15; pointer-events: none; }
+    canvas { width: 100% !important; height: 100% !important; }
+  </style>
+</head>
+<body>
+  <div id="frame">
+    <div id="tags"></div>
+    <div id="levelUp" class="hidden"></div>
+    <div id="hud" class="hidden">
+      <div id="timer">2:00</div>
+      <div id="sizeInfo">Size 12</div>
+      <div id="progressInfo"></div>
+      <div id="hint"></div>
+    </div>
+    <div id="board" class="hidden"><h3>Leaderboard</h3><div id="rows"></div></div>
+    <button id="pauseBtn" class="hidden">⏸</button>
+    <div id="joy" class="hidden"><div id="joyKnob"></div></div>
+    <div id="overlay" class="menu hidden">
+      <div id="versionTag"></div>
+      <div id="storePage" class="page hidden"></div>
+      <div id="playPage" class="page">
+        <h1 id="logo">VoidRush</h1>
+        <h2 id="matchResult" class="hidden"></h2>
+        <div id="levelInfo"></div>
+        <div class="gold" id="goldPlay"></div>
+        <p id="playText"></p>
+        <div id="finalBoard" class="hidden"></div>
+        <button id="startBtn">Play</button>
+      </div>
+      <div id="settingsPage" class="page hidden">
+        <input type="checkbox" id="shadowsChk" />
+        <select id="controlsSel"><option value="touch">touch</option></select>
+        <button id="fsBtn"></button>
+        <input type="checkbox" id="debugChk" />
+        <div id="debugSection" class="hidden"><div id="levelSelect"></div>
+          <button id="unlockAllBtn"></button></div>
+        <button id="resetBtn"></button>
+        <div id="versionSetting"></div>
+      </div>
+      <nav id="tabbar">
+        <button id="tabStore"></button>
+        <button id="tabPlay" class="active"></button>
+        <button id="tabSettings"></button>
+      </nav>
+    </div>
+    <div id="pauseMenu" class="menu hidden"></div>
+  </div>
+  <div id="log">SMOKE boot…</div>
+
+  <link rel="stylesheet" href="../../css/style.css" />
+  <script src="../../js/vendor/three.min.js"></script>
+  <script src="../../js/vendor/GLTFLoader.js"></script>
+  <script src="../../js/core.js"></script>
+  <script src="../../js/config.js"></script>
+  <script src="../../js/models.js"></script>
+  <script src="../../js/engine.js"></script>
+  <script src="../../js/props.js"></script>
+  <script src="../../js/spatial.js"></script>
+  <script src="../../js/save.js"></script>
+  <script src="../../js/cosmetics.js"></script>
+  <script src="../../js/hole.js"></script>
+  <script src="../../js/levels/city.js"></script>
+  <script src="../../js/levels/city-test.js"></script>
+  <script src="../../js/levels/desert.js"></script>
+  <script src="../../js/levels/island.js"></script>
+  <script src="../../js/levels/medieval.js"></script>
+  <script src="../../js/levels/winter.js"></script>
+  <script src="../../js/input.js"></script>
+  <script src="../../js/rules.js"></script>
+  <script src="../../js/hud.js"></script>
+  <script src="../../js/main.js"></script>
+  <script src="smoke-suite.js"></script>
+</body>
+</html>
