@@ -41,8 +41,7 @@ function persistSave() {
 }
 
 function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  return checkinToday(new Date());
 }
 
 function ownsCosmetic(id) { return SAVE.owned.includes(id); }

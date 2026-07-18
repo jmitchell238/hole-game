@@ -50,7 +50,7 @@ function init(level) {
   matchTime = isSolo ? 240 : MATCH_TIME;   // set global for grace period calculation
 
   // Solo objective: target percentage increases with campaign level
-  targetPct = Math.min(50 + 3*(SAVE.campaignLevel-1), 90);
+  targetPct = soloTargetPct(SAVE.campaignLevel);
   soloWon = false;
 
   // Hide leaderboard during solo, show during battles
@@ -287,14 +287,14 @@ function endMatch() {
       // Solo win
       const levelJustBeaten = SAVE.campaignLevel;
       SAVE.campaignLevel++;
-      reward = Math.max(5, Math.round(player.r/2)) + 20;
+      reward = soloReward(true, player.r);
       resultText = `Level ${levelJustBeaten} cleared! 🎉`;
       btnText = 'Next level';
       persistSave();
     } else {
       // Solo loss (time ran out)
       const devourPct = Math.round(levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0);
-      reward = Math.max(3, Math.round(player.r/4));
+      reward = soloReward(false, player.r);
       resultText = `Time's up — devoured ${devourPct}% (goal ${Math.round(targetPct)}%)`;
       btnText = 'Retry level';
     }
@@ -326,10 +326,7 @@ function endMatch() {
     const rank = player.eaten ? 0 : ranked.indexOf(player)+1;
 
     // Match reward: gold for size, bonus for the podium.
-    const reward = player.eaten
-      ? Math.max(3, Math.round(player.r/4))
-      : Math.max(5, Math.round(player.r/2)) +
-        (rank === 1 ? 25 : rank === 2 ? 15 : rank === 3 ? 10 : 0);
+    const reward = battleReward(player.eaten, player.r, rank);
 
     // Battle level always advances, even if swallowed
     SAVE.campaignLevel++;

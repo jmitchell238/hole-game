@@ -7,13 +7,8 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.43.001';
+const GAME_VERSION = '2.43.002';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
-const MATCH_TIME = 150;
-const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
-const GROW = 0.40;
-const GROW_FALLOFF = 30;
-const EAT_RATIO = 1.5;            // must be 1.5x an object's footprint to eat it
 const GRAVITY = 110;              // fall acceleration into the hole
 const HOLE_DEPTH = 150;           // how deep the visible pit goes
 const BOT_NAMES = ['xX_Reaper','mossy','GulpLord','Tina','pixelpete','NovaCat',
@@ -99,22 +94,6 @@ const GFX = {
   qualityLabel: QUALITY_TIER === 'perf' ? 'perf' : (IS_IPHONE ? 'iphone' : (IS_IPAD ? 'ipad' : (IS_TOUCH ? 'mobile' : 'desktop'))),
 };
 
-const BATTLE_EVERY = 5;           // battle occurs every 5th level
-function isBattleLevel(n) { return n % BATTLE_EVERY === 0; }
-
-const SIZE_TIERS = [8, 9, 11, 12, 14, 16, 18, 21, 24, 28, 32, 37, 42, 48, 55, 63, 73, 84, 96, 110];
-function sizeLevel(r) {
-  let lv = 1;
-  for (let i = 1; i < SIZE_TIERS.length; i++)
-    if (r >= SIZE_TIERS[i]) lv = i + 1;
-  return lv;
-}
-
-const rand = (a,b) => a + Math.random()*(b-a);
-const pick = arr => arr[(Math.random()*arr.length)|0];
-const clamp = (v,a,b) => v<a?a:v>b?b:v;
-const dist = (ax,az,bx,bz) => Math.hypot(ax-bx, az-bz);
-const areaOf = r => Math.PI*r*r;
 
 // ---- Level registry ---------------------------------------------------------
 // Each file in js/levels/ describes one themed map and calls registerLevel().

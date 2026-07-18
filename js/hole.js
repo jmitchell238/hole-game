@@ -139,20 +139,16 @@ function removeHole(h) {
   h.tag.remove();
 }
 
-function canEat(hole, r) { return hole.r >= r * EAT_RATIO; }
+function canEat(hole, r) { return canEatR(hole.r, r); }
 
 /** Max hole radius for the current map — prevents crashes when r > world. */
 function maxHoleRadius() {
-  if (!currentLevel || !currentLevel.world) return 110;
-  // Cap earlier so late-game camera never sees the whole map as dots.
-  // Leave margin so clamp(min,max) stays valid and Shape/scale stay sane.
-  return Math.min(currentLevel.world * 0.25, SIZE_TIERS[SIZE_TIERS.length - 1]);
+  const world = (currentLevel && currentLevel.world) || null;
+  return maxHoleRadiusFor(world);
 }
 
 function grow(h, addArea) {
-  addArea *= GROW * GROW_FALLOFF / (GROW_FALLOFF + h.r);
-  if (battleMode) addArea *= Math.max(0.25, 1 - h.r / 240);
-  h.r = Math.sqrt((areaOf(h.r) + addArea) / Math.PI);
+  h.r = growRadius(h.r, addArea, battleMode);
   const cap = maxHoleRadius();
   if (h.r > cap) h.r = cap;
 }
