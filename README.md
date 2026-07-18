@@ -30,7 +30,10 @@ hosted site.
 |---|---|
 | `index.html` | Page markup, tab bar, script tags |
 | `css/style.css` | All styling |
+| `js/core.js` | Pure game math: level tiers, growth, rewards, seeded RNG (Node-exportable) |
 | `js/config.js` | Game constants, helpers, the level registry, shared state |
+| `js/models.js` | Game entity models: holes, props, objects |
+| `js/spatial.js` | Spatial data structures for collision and search queries |
 | `js/engine.js` | Renderer, scene, camera, lights, 16:9 frame, ground |
 | `js/props.js` | Prop library: stats, materials, mesh builders, `registerProp()` |
 | `js/save.js` | Persistent progress: gold, purchases, settings (localStorage) |
@@ -39,7 +42,13 @@ hosted site.
 | `js/rules.js` | Match rules: swallowing physics, hole collisions, bot AI |
 | `js/input.js` | Pointer (mouse/touch) input, keyboard, resize |
 | `js/hud.js` | HUD, leaderboard, Store/Play/Settings tabs, level select |
-| `js/levels/` | One file per themed level |
+| `js/main.js` | Game loop, initialization, match flow |
+| `js/levels/city.js` | Procedurally generated urban level |
+| `js/levels/city-test.js` | Small test level for debugging |
+| `js/levels/island.js` | Archipelago level with organic island layout |
+| `js/levels/winter.js` | Snowy level with seasonal props |
+| `js/levels/desert.js` | Desert level with dunes and cacti |
+| `js/levels/medieval.js` | Medieval town level |
 | `sw.js` + `manifest.webmanifest` | PWA install + offline cache |
 
 ## Adding a new level (desert, medieval, winter, …)

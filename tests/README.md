@@ -4,6 +4,23 @@
 
 Graphics knobs in `js/config.js` (`GFX`) are tuned for a **1st-generation iPad Pro 12.9" (A9X, 2015)**: large Retina panel, limited fill rate/VRAM. Touch tablets get `renderScale ≈ 0.58`, 1k textures, aggressive spatial streaming, and no GLTF clones.
 
+## Unit tests (`tests/unit`)
+
+Node.js unit tests for `js/core.js` (pure game math: level tiers, rewards, growth formulas, seeded RNG) and static release-consistency checks (index.html script tags, sw.js CACHE/ASSETS, level registrations, tests/perf/budgets.json).
+
+### Run
+
+```bash
+bash tests/run-tests.sh
+```
+
+Uses Node's native `test`/`describe`/`assert` (no npm dependencies). Exit code 0 = all pass.
+
+### Coverage
+
+- **core.test.js**: sizeLevel, growRadius, canEatR, maxHoleRadiusFor, soloTargetPct, soloReward, battleReward, isBattleLevel, mulberry32, rand, pick, checkinToday, exported constants
+- **consistency.test.js**: index.html <script> paths exist; sw.js CACHE matches GAME_VERSION; ASSETS entries exist; level files have registerLevel + required keys; tests/perf/budgets.json matches perf-suite.js (ignoring _* metadata keys)
+
 ## Perf / integration (`tests/perf`)
 
 Measures init, `update`, `render`, and **how many props stay parented to the scene** as the hole (camera) grows. Late-game lag is mostly “everything still drawn when zoomed out” — these budgets catch that.
