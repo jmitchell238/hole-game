@@ -109,7 +109,8 @@ function makeHole(x, z, name, isPlayer) {
   tag.className = 'tag'; tag.textContent = name;
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
-  return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: (typeof currentLevel !== 'undefined' && currentLevel && currentLevel.startR) || 12, name, isPlayer,
+  const startR = (typeof currentLevel !== 'undefined' && currentLevel && currentLevel.startR) || 12;
+  return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: startR, trueR: startR, name, isPlayer,
     tx: x, tz: z, retarget: 0, _ringLv: 1, _ringJitter: Math.random() * 0.06,
     customPit: pitMat === PIT_MAT ? null : pitMat };
 }
@@ -148,15 +149,15 @@ function maxHoleRadius() {
 }
 
 function grow(h, addArea) {
-  h.r = growRadius(h.r, addArea, battleMode);
+  h.trueR = growRadius(h.trueR, addArea, battleMode);
   const cap = maxHoleRadius();
-  if (h.r > cap) h.r = cap;
+  if (h.trueR > cap) h.trueR = cap;
 }
 
 // Push the pit/cap/ring/mouth meshes to the hole's current position and size.
 function syncHole(h) {
   const cap = maxHoleRadius();
-  if (h.r > cap) h.r = cap;
+  if (h.trueR > cap) h.trueR = cap;
   const s = h.r;
   h.wall.scale.set(s, 1, s);
   h.cap.scale.set(s, s, s);
@@ -180,7 +181,7 @@ function syncHole(h) {
   if (h.ghost) h.ghost.position.y = 0.30 + s * 0.018;
 
   // Rebuild ring geometry when sizeLevel changes (not every frame)
-  const currentLv = sizeLevel(h.r);
+  const currentLv = sizeLevel(h.trueR);
   if (currentLv !== h._ringLv) {
     h._ringLv = currentLv;
     if (h.ring.geometry) h.ring.geometry.dispose();
@@ -202,8 +203,11 @@ function syncHole(h) {
 function moveHole(h, dt) {
   const W = currentLevel.world;
   const cap = maxHoleRadius();
-  if (h.r > cap) h.r = cap;
-  const speed = 58 + sizeLevel(h.r) * 1.75;
+  if (h.trueR > cap) h.trueR = cap;
+  // Animate h.r toward the tier target: quick bump (~0.6s to 95%)
+  const tierTarget = tierRadiusFor(h.trueR, cap);
+  h.r += (tierTarget - h.r) * Math.min(1, dt * 5);
+  const speed = 58 + sizeLevel(h.trueR) * 1.75;
   const d = dist(h.x, h.z, h.tx, h.tz);
   if (d > 1) {
     const step = Math.min(speed * dt, d);

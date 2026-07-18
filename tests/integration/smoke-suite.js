@@ -49,7 +49,7 @@
 
   // Drive eating: teleport player onto a prop and let it fall
   function driveEating(hole, maxTicks) {
-    let eaten = 0, startR = hole.r;
+    let eaten = 0, startTrueR = hole.trueR;
     let targetProp = findNearestEdibleProp(hole);
     let ticksSinceRetarget = 0;
 
@@ -75,7 +75,7 @@
       if (eaten > 0) break;  // Stop if we've eaten something
     }
 
-    return { eaten, grewTo: hole.r, startR };
+    return { eaten, grewTo: hole.trueR, startR: startTrueR };
   }
 
   // Test a single level
@@ -111,7 +111,7 @@
       }
 
       // ---- Eating test ----
-      const levelStartR = player.r;
+      const levelStartR = player.trueR;
       const levelStartObjects = objects.length;
       running = true;
       timeLeft = 300;  // plenty of time for eating
@@ -248,10 +248,10 @@
       }
 
       // Find the biggest bot
-      let biggestBot = null, maxBotR = 0;
+      let biggestBot = null, maxBotTrueR = 0;
       for (const h of holes) {
-        if (!h.isPlayer && h.r > maxBotR) {
-          maxBotR = h.r;
+        if (!h.isPlayer && h.trueR > maxBotTrueR) {
+          maxBotTrueR = h.trueR;
           biggestBot = h;
         }
       }
@@ -262,8 +262,9 @@
         return;
       }
 
-      // Make player big enough to eat the bot
-      player.r = biggestBot.r * 2;
+      // Make player big enough to eat the bot (set trueR, let r animate to tier)
+      player.trueR = biggestBot.trueR * 2;
+      player.r = tierRadiusFor(player.trueR, maxHoleRadius());
       syncHole(player);
 
       // Move player onto the bot
@@ -342,8 +343,10 @@
       const initialCount = testStack.slices.length;
       log('SMOKE stacked_building stackId=' + stackId + ' initial_slices=' + initialCount);
 
-      // Make player very large to guarantee eatable
-      player.r = 80;
+      // Make player very large to guarantee eatable (set trueR, let r animate to tier)
+      // Set trueR=100 so tierRadiusFor gives us 96 (the tier >= 100), same visual effect as r=80 before
+      player.trueR = 100;
+      player.r = tierRadiusFor(player.trueR, maxHoleRadius());
       syncHole(player);
 
       // Park player on the first slice of the stack

@@ -91,6 +91,57 @@ describe('maxHoleRadiusFor(world)', () => {
   });
 });
 
+describe('tierRadiusFor(trueR, cap)', () => {
+  test('below tier 1 boundary (trueR < 8) → SIZE_TIERS[0]=8', () => {
+    assert.strictEqual(core.tierRadiusFor(0, null), 8);
+    assert.strictEqual(core.tierRadiusFor(7, null), 8);
+  });
+
+  test('at tier boundaries', () => {
+    // trueR=9 → level 2 → SIZE_TIERS[1]=9
+    assert.strictEqual(core.tierRadiusFor(9, null), 9);
+    // trueR=14 → level 5 → SIZE_TIERS[4]=14
+    assert.strictEqual(core.tierRadiusFor(14, null), 14);
+    // trueR=110 → level 20 → SIZE_TIERS[19]=110
+    assert.strictEqual(core.tierRadiusFor(110, null), 110);
+  });
+
+  test('between tier boundaries (snaps to lower tier)', () => {
+    // trueR=10 (between 9 and 11) → level 2 → SIZE_TIERS[1]=9
+    assert.strictEqual(core.tierRadiusFor(10, null), 9);
+    // trueR=20 (between 18 and 21) → level 8 → SIZE_TIERS[7]=21
+    assert.strictEqual(core.tierRadiusFor(20, null), 18);
+  });
+
+  test('clamping with cap parameter', () => {
+    // trueR=50, cap=45 → tier target is 48, clamped to 45
+    assert.strictEqual(core.tierRadiusFor(50, 45), 45);
+    // trueR=100, cap=50 → tier target is 96, clamped to 50
+    assert.strictEqual(core.tierRadiusFor(100, 50), 50);
+    // trueR=10, cap=100 → tier target is 9, no clamping
+    assert.strictEqual(core.tierRadiusFor(10, 100), 9);
+  });
+
+  test('monotonicity: higher trueR → higher or equal tier radius', () => {
+    for (let r = 0; r <= 120; r += 5) {
+      const prev = core.tierRadiusFor(r - 1, null);
+      const curr = core.tierRadiusFor(r, null);
+      assert(curr >= prev, `tierRadiusFor should be monotonic: ${r-1} → ${prev}, ${r} → ${curr}`);
+    }
+  });
+
+  test('max tier (trueR >= 110) → 110', () => {
+    assert.strictEqual(core.tierRadiusFor(110, null), 110);
+    assert.strictEqual(core.tierRadiusFor(150, null), 110);
+    assert.strictEqual(core.tierRadiusFor(500, null), 110);
+  });
+
+  test('cap prevents exceeding tier target', () => {
+    // Even if tier target is 110, cap at 60
+    assert.strictEqual(core.tierRadiusFor(200, 60), 60);
+  });
+});
+
 describe('soloTargetPct(campaignLevel)', () => {
   test('level 1 → 50%', () => {
     assert.strictEqual(core.soloTargetPct(1), 50);

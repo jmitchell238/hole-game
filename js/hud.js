@@ -13,7 +13,7 @@ function boardHtml(list) {
   return [...list].sort((a,b)=>b.r-a.r).map((h,i) =>
     `<div class="row ${h.isPlayer?'me':''}"><span>
        <span class="rank">${i+1}</span>${h.name}</span>
-     <span>Lv${sizeLevel(h.r)} · ${Math.round(h.r)}</span></div>`).join('');
+     <span>Lv${sizeLevel(h.trueR)} · ${Math.round(h.r)}</span></div>`).join('');
 }
 
 // Cache DOM nodes — getElementById every frame is silly on a 2015 iPad
@@ -39,9 +39,9 @@ function updateHud(force) {
 
   if (_hud.timer) _hud.timer.textContent = fmt(timeLeft);
   if (!player) return;
-  const lv = sizeLevel(player.r);
+  const lv = sizeLevel(player.trueR);
   if (_hud.sizeInfo)
-    _hud.sizeInfo.textContent = 'Level ' + lv + ' · Size ' + Math.round(player.r);
+    _hud.sizeInfo.textContent = 'Size ' + lv + '/20';
 
   if (lv > lastLevel && _hud.levelUp) {
     _hud.levelUp.textContent = 'SIZE ' + lv + '!';

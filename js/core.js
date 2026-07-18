@@ -40,6 +40,13 @@ function maxHoleRadiusFor(world) {
   return Math.min(world * 0.25, SIZE_TIERS[SIZE_TIERS.length - 1]);
 }
 
+/** Physical radius target for stepped growth: tier value clamped by cap. */
+function tierRadiusFor(trueR, cap) {
+  const lv = sizeLevel(trueR);
+  const tierTarget = SIZE_TIERS[lv - 1];
+  return cap ? Math.min(tierTarget, cap) : tierTarget;
+}
+
 /** Check if one hole can eat another. */
 function canEatR(holeR, propR) { return holeR >= propR * EAT_RATIO; }
 
@@ -187,7 +194,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SIZE_TIERS, GROW, GROW_FALLOFF, EAT_RATIO, BATTLE_EVERY, MATCH_TIME, PVP_GRACE,
     clamp, dist, areaOf, isBattleLevel, sizeLevel,
-    growRadius, maxHoleRadiusFor, canEatR, soloTargetPct, soloReward, battleReward, checkinToday,
+    growRadius, maxHoleRadiusFor, tierRadiusFor, canEatR, soloTargetPct, soloReward, battleReward, checkinToday,
     mulberry32, setRandSource, currentRandSource, rand, pick,
     makeGrid
   };
