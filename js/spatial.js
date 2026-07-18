@@ -20,6 +20,7 @@ let _streamTick = 0;
 let _lastStreamInScene = 0;
 let _spatialReady = false;
 let PROP_GRID = null;  // spatial hash grid for props
+let STACK_MAP = new Map();  // Map<stackId, obj[]> for fast stack lookups
 
 function cellKey(x, z) {
   return Math.floor(x / 120) + ':' + Math.floor(z / 120);
@@ -31,6 +32,15 @@ function rebuildSpatialIndex() {
     PROP_GRID = makeGrid(SPATIAL.gridCellSize);
   } else {
     PROP_GRID.clear();
+  }
+
+  // Rebuild stack index for fast stack lookups
+  STACK_MAP.clear();
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (!o.stackId || o.dead) continue;  // skip dead objects lazily
+    if (!STACK_MAP.has(o.stackId)) STACK_MAP.set(o.stackId, []);
+    STACK_MAP.get(o.stackId).push(o);
   }
 
   for (let i = 0; i < objects.length; i++) {
@@ -49,6 +59,12 @@ function rebuildSpatialIndex() {
 function gridRemove(o) {
   if (PROP_GRID && typeof PROP_GRID.remove === 'function') {
     PROP_GRID.remove(o);
+  }
+}
+
+function gridInsert(o) {
+  if (PROP_GRID && typeof PROP_GRID.insert === 'function' && o.mesh) {
+    PROP_GRID.insert(o, o.x, o.z);
   }
 }
 

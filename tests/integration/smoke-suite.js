@@ -297,6 +297,93 @@
     }
   }
 
+  // Test stacked building eating regression (city level, multi-slice stack must all be eatable)
+  function testStackedBuildingEating() {
+    try {
+      log('SMOKE section=stacked_building');
+
+      const levelId = 'city';
+      const level = LEVELS[levelId];
+      if (!level) {
+        log('SMOKE FAIL stacked_building missing_level id=' + levelId);
+        fails++;
+        return;
+      }
+
+      SAVE.debug = true;
+      SAVE.shadows = false;
+      SAVE.campaignLevel = 1;  // solo mode
+      battleMode = false;
+
+      init(level);
+
+      // Find a stacked building (stackId group with > 1 props)
+      const stacks = new Map();
+      for (const o of objects) {
+        if (!o.stackId) continue;
+        if (!stacks.has(o.stackId)) stacks.set(o.stackId, []);
+        stacks.get(o.stackId).push(o);
+      }
+
+      let testStack = null;
+      for (const [stackId, slices] of stacks) {
+        if (slices.length > 1) {
+          testStack = { stackId, slices };
+          break;
+        }
+      }
+
+      if (!testStack) {
+        log('SMOKE section=stacked_building result=no_stacks');
+        return;  // Not a failure, just no test case available
+      }
+
+      const stackId = testStack.stackId;
+      const initialCount = testStack.slices.length;
+      log('SMOKE stacked_building stackId=' + stackId + ' initial_slices=' + initialCount);
+
+      // Make player very large to guarantee eatable
+      player.r = 80;
+      syncHole(player);
+
+      // Park player on the first slice of the stack
+      const firstSlice = testStack.slices[0];
+      player.x = firstSlice.x;
+      player.z = firstSlice.z;
+      syncHole(player);
+
+      running = true;
+      timeLeft = 300;
+      last = performance.now();
+
+      // Drive eating: run update ticks and count remaining slices with this stackId
+      let finalCount = initialCount;
+      for (let tick = 0; tick < 1500; tick++) {
+        update(1/60);
+        if (!running) break;
+
+        // Count live objects with this stackId
+        finalCount = 0;
+        for (const o of objects) {
+          if (o.stackId === stackId && !o.dead && !o.falling) finalCount++;
+        }
+
+        if (finalCount === 0) break;  // All slices eaten
+      }
+
+      log('SMOKE stacked_building final_slices=' + finalCount);
+
+      if (finalCount > 0) {
+        log('SMOKE FAIL stacked_building slices_not_eaten remaining=' + finalCount);
+        fails++;
+      }
+    } catch (e) {
+      log('SMOKE FAIL stacked_building exception=' + (e.message || e));
+      log(e.stack || '');
+      fails++;
+    }
+  }
+
   // Main entry point
   window.addEventListener('load', function () {
     setTimeout(function () {  // 1 second delay to ensure full initialization
@@ -338,10 +425,11 @@
           testLevel(levelId);
         }
 
-        // Test solo win and battle elimination on city
+        // Test solo win, battle elimination, and stacked building eating on city
         if (LEVELS['city']) {
           testSoloWin();
           testBattleElimination();
+          testStackedBuildingEating();
         }
 
         log('SMOKE RESULT ' + (fails === 0 ? 'pass' : 'fail'));

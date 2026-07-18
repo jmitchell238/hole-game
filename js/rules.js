@@ -71,8 +71,7 @@ function update(dt) {
     moveHole(h, dt);
   }
 
-  // Only re-triangulate the ground when a hole has moved/grown enough.
-  // Rebuilding ShapeGeometry every frame was the #1 iPad hitch.
+  // Ground update API seam (implementation in engine.js).
   refreshGround(false);
 
   // Swallowing. An object only starts falling once its whole footprint is
@@ -83,6 +82,7 @@ function update(dt) {
   // Broad-phase: use spatial grid per hole to skip distant props
   // (huge win on dense maps with 2k+ props).
   let maxReach = 0;
+  let needsCompact = false;  // only rebuild objects array if something died
   for (const h of holes) {
     if (h.r > maxReach) maxReach = h.r;
   }
@@ -118,6 +118,7 @@ function update(dt) {
         // Destroyed for good — strip from scene + free GPU resources
         if (typeof destroyProp === 'function') destroyProp(ob);
         else { scene.remove(ob.mesh); ob.dead = true; }
+        needsCompact = true;
       }
       continue;
     }
@@ -129,6 +130,10 @@ function update(dt) {
         ob.settling = false;
         ob.mesh.matrixAutoUpdate = false;
         ob.mesh.updateMatrix();
+        // Insert into grid if slice reaches ground level
+        if (ob.baseY <= 0.5 && typeof gridInsert === 'function') {
+          gridInsert(ob);
+        }
       } else {
         ob.mesh.updateMatrix();
       }
@@ -157,9 +162,10 @@ function update(dt) {
         gridRemove(ob);  // remove from grid when falling starts
         if (typeof thawProp === 'function') thawProp(ob.mesh);
         // When a slice starts falling, drop other slices in the same stack
-        if (ob.stackId) {
-          for (const o of objects) {
-            if (o.stackId === ob.stackId && !o.falling && !o.dead) {
+        if (ob.stackId && STACK_MAP.has(ob.stackId)) {
+          const stackSlices = STACK_MAP.get(ob.stackId);
+          for (const o of stackSlices) {
+            if (!o.dead && !o.falling) {  // skip dead objects lazily
               o.targetY = (o.targetY !== undefined ? o.targetY : o.baseY) - ob.h;
               o.settling = true;
               if (typeof thawProp === 'function') thawProp(o.mesh);
@@ -170,7 +176,7 @@ function update(dt) {
       }
     }
   }
-  objects = objects.filter(o => !o.dead);
+  if (needsCompact) objects = objects.filter(o => !o.dead);
 
   // Solo mode: skip hole-vs-hole eating, check for devour target
   if (!battleMode) {
@@ -196,6 +202,7 @@ function update(dt) {
     const elapsedTime = (matchTime || MATCH_TIME) - timeLeft;
     const inGrace = elapsedTime < PVP_GRACE;
     for (const a of holes) {
+      if (a.eaten) continue;  // eaten hole doesn't eat in its death frame
       for (const b of holes) {
         if (a === b || b.eaten) continue;
         if (!inGrace && a.r >= 1.75 * b.r && dist(a.x, a.z, b.x, b.z) < a.r) {

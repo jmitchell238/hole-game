@@ -66,6 +66,7 @@ function init(level) {
 
 // ---- Popup system for eat feedback -------------------------------------------
 let popupPool = [];
+let livePopups = [];  // array of live popup elements
 let nextPopupId = 0;
 function spawnPopup(h, pts) {
   let popup;
@@ -79,7 +80,7 @@ function spawnPopup(h, pts) {
   popup.textContent = '+' + pts;
   popup.style.display = 'block';
   popup.userData = { hole: h, startTime: performance.now(), id: nextPopupId++ };
-  popupPool.live = (popupPool.live || 0) + 1;
+  livePopups.push(popup);
   return popup;
 }
 
@@ -208,13 +209,17 @@ function render() {
 
   // Popups
   const popupsToRemove = [];
-  document.querySelectorAll('.popup').forEach(popup => {
-    if (!popup.userData) return;
+  for (let i = livePopups.length - 1; i >= 0; i--) {
+    const popup = livePopups[i];
+    if (!popup.userData) {
+      livePopups.splice(i, 1);
+      continue;
+    }
     const age = (performance.now() - popup.userData.startTime) / 1000;
     if (age > 0.8) {
       popup.style.display = 'none';
       popupsToRemove.push(popup);
-      popupPool.live = Math.max(0, (popupPool.live || 0) - 1);
+      livePopups.splice(i, 1);
     } else {
       const h = popup.userData.hole;
       const pv = new THREE.Vector3(h.x, 6, h.z).project(camera);
@@ -223,7 +228,7 @@ function render() {
         popup.style.top = (-pv.y * 0.5 + 0.5) * FRAME.h + 'px';
       }
     }
-  });
+  }
   popupsToRemove.forEach(p => { popupPool.push(p); });
 }
 
@@ -290,7 +295,6 @@ function endMatch() {
       reward = soloReward(true, player.r);
       resultText = `Level ${levelJustBeaten} cleared! 🎉`;
       btnText = 'Next level';
-      persistSave();
     } else {
       // Solo loss (time ran out)
       const devourPct = Math.round(levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0);
