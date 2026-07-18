@@ -152,10 +152,8 @@ function autoDemoteToPerf() {
 function render() {
   // Camera: distance ∝ r so hole stays ~constant on-screen fraction (~30%).
   // Look slightly past the hole so more ground fills the frame (less empty sky).
-  let height = 18 + player.r * (GFX.camHeightMul || 4.9);
-  let depth = 15 + player.r * (GFX.camDepthMul || 4.15);
-  if (GFX.camHeightCap) height = Math.min(height, GFX.camHeightCap);
-  if (GFX.camDepthCap) depth = Math.min(depth, GFX.camDepthCap);
+  let height = 12 + player.r * 3.9 + player.r * player.r * 0.008;
+  let depth = 10 + player.r * 3.3 + player.r * player.r * 0.0065;
   const want = new THREE.Vector3(player.x, height, player.z + depth);
   camPos.lerp(want, GFX.lowEnd ? 0.12 : 0.08);
   camera.position.copy(camPos);
