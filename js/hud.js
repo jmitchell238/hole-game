@@ -20,12 +20,16 @@ function boardHtml(list) {
 const _hud = {
   timer: document.getElementById('timer'),
   sizeInfo: document.getElementById('sizeInfo'),
-  progressInfo: document.getElementById('progressInfo'),
+  progressWrap: document.getElementById('progressWrap'),
+  progressFill: document.getElementById('progressFill'),
+  progressGoal: document.getElementById('progressGoal'),
+  progressPct: document.getElementById('progressPct'),
   rows: document.getElementById('rows'),
   levelUp: document.getElementById('levelUp'),
 };
 let _hudLastMs = 0;
 let _hudLastBoard = '';
+let _hudLastPct = -1;
 
 function updateHud(force) {
   const now = performance.now();
@@ -51,14 +55,33 @@ function updateHud(force) {
   if (!levelTotal) return;
   if (!battleMode) {
     const soloPct = Math.round(levelTotalArea > 0 ? (devouredArea / levelTotalArea) * 100 : 0);
-    if (_hud.progressInfo)
-      _hud.progressInfo.textContent =
-        'Devoured ' + soloPct + '% · goal ' + Math.round(targetPct) + '%';
+    // Only update DOM when rounded percentage changed
+    if (soloPct !== _hudLastPct) {
+      const wasFirst = _hudLastPct === -1;
+      _hudLastPct = soloPct;
+      if (_hud.progressFill) {
+        _hud.progressFill.style.width = soloPct + '%';
+        _hud.progressFill.classList.toggle('done', soloPct >= targetPct);
+        // Add animation class after width is set (not on first update to avoid virtual-time issues)
+        if (!wasFirst) _hud.progressFill.classList.add('animate');
+        else setTimeout(() => _hud.progressFill.classList.add('animate'), 0);
+      }
+      if (_hud.progressGoal) _hud.progressGoal.style.left = Math.round(targetPct) + '%';
+      if (_hud.progressPct) _hud.progressPct.textContent = soloPct + '%';
+    }
   } else {
     const pct = Math.round((1 - objects.length / levelTotal) * 100);
-    if (_hud.progressInfo)
-      _hud.progressInfo.textContent =
-        currentLevel.progressLabel + ': ' + pct + '%';
+    // Only update DOM when rounded percentage changed
+    if (pct !== _hudLastPct) {
+      _hudLastPct = pct;
+      if (_hud.progressFill) {
+        _hud.progressFill.style.width = pct + '%';
+        _hud.progressFill.classList.remove('done');
+        _hud.progressFill.classList.add('animate');
+      }
+      if (_hud.progressGoal) _hud.progressGoal.style.display = 'none';
+      if (_hud.progressPct) _hud.progressPct.textContent = pct + '%';
+    }
     // Leaderboard HTML only when the ranking text actually changes
     const html = boardHtml(holes);
     if (html !== _hudLastBoard) {

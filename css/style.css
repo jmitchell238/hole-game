@@ -15,7 +15,21 @@ canvas.dragging { cursor: grabbing; }
   text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 #timer { font-size: 34px; font-weight: 800; }
 #sizeInfo { font-size: 15px; opacity: .95; }
-#progressInfo { font-size: 13px; opacity: .85; }
+#progressWrap { position: relative; width: 180px; height: 14px; border-radius: 8px;
+  background: rgba(22,27,34,.82); border: 1px solid #30363d;
+  overflow: hidden; }
+#progressFill { position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, #58d68d, #ffcf40);
+  width: 0%; }
+#progressFill.animate { transition: width 0.3s ease; }
+#progressFill.done { background: linear-gradient(90deg, #ffcf40, #b9f73e);
+  box-shadow: 0 0 8px rgba(184,247,62,.6); }
+#progressGoal { position: absolute; top: 0; bottom: 0; width: 2px;
+  background: rgba(255,207,64,.7); left: 0%; }
+#progressPct { position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%); font-size: 10px; font-weight: 600;
+  color: #e6edf3; text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  pointer-events: none; }
 #hint { font-size: 12px; opacity: .8; margin-top: 4px; }
 #pauseBtn { position: absolute; top: max(10px, env(safe-area-inset-top));
   left: 50%; transform: translateX(-50%); width: 46px; height: 46px;
