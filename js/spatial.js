@@ -9,6 +9,7 @@ const SPATIAL = {
   exitPad: 45,
   // Below this count, leave everything parented (City Test ~25 — no thrash)
   streamMinProps: 80,
+  gridCellSize: 120,  // must match cellKey size
 };
 
 const _frustum = new THREE.Frustum();
@@ -18,19 +19,37 @@ const _sphere = new THREE.Sphere();
 let _streamTick = 0;
 let _lastStreamInScene = 0;
 let _spatialReady = false;
+let PROP_GRID = null;  // spatial hash grid for props
 
 function cellKey(x, z) {
   return Math.floor(x / 120) + ':' + Math.floor(z / 120);
 }
 
 function rebuildSpatialIndex() {
+  // Rebuild spatial hash grid for props
+  if (!PROP_GRID || typeof PROP_GRID.clear !== 'function') {
+    PROP_GRID = makeGrid(SPATIAL.gridCellSize);
+  } else {
+    PROP_GRID.clear();
+  }
+
   for (let i = 0; i < objects.length; i++) {
     const o = objects[i];
     if (o.dead || !o.mesh) continue;
     o._cell = cellKey(o.x, o.z);
     o._streamed = !!o.mesh.parent;
+    // Insert ground-level props into the grid (exclude falling/settling)
+    if (!o.falling && !o.settling && o.baseY <= 0.5) {
+      PROP_GRID.insert(o, o.x, o.z);
+    }
   }
   _spatialReady = true;
+}
+
+function gridRemove(o) {
+  if (PROP_GRID && typeof PROP_GRID.remove === 'function') {
+    PROP_GRID.remove(o);
+  }
 }
 
 function viewRadius() {
@@ -62,6 +81,7 @@ function sphereHitsPlanes(planes) {
 function destroyProp(o) {
   if (!o) return;
   o.dead = true;
+  gridRemove(o);  // remove from spatial grid
   const root = o.mesh;
   if (!root) return;
   if (root.parent) root.parent.remove(root);

@@ -8,11 +8,17 @@ function botThink(bot) {
       bot.tx = bot.x+(bot.x-o.x); bot.tz = bot.z+(bot.z-o.z); return;
     }
   }
-  // Prefer props over hunting holes — only search nearby (not whole map)
+  // Prefer props over hunting holes — use grid query for nearby props
   let best = null, bd = 1e9;
   const huntR = 220 + bot.r * 2;
   const huntR2 = huntR * huntR;
-  for (const ob of objects) {
+
+  // Query grid for props near bot, then filter and find closest
+  const candidates = PROP_GRID && typeof PROP_GRID.queryCircle === 'function'
+    ? PROP_GRID.queryCircle(bot.x, bot.z, huntR, [])
+    : objects;  // fallback to all objects if grid not ready
+
+  for (const ob of candidates) {
     if (ob.falling || ob.dead || ob.baseY > 0.5 || !canEat(bot, ob.r)) continue;
     const dx = ob.x - bot.x, dz = ob.z - bot.z;
     const d2 = dx * dx + dz * dz;
@@ -74,7 +80,7 @@ function update(dt) {
   // wall — nothing clips through the edge — and it only counts (and grows
   // the hole) once it is fully below the surface.
   //
-  // Broad-phase: skip props that are farther than the largest hole's reach
+  // Broad-phase: use spatial grid per hole to skip distant props
   // (huge win on dense maps with 2k+ props).
   let maxReach = 0;
   for (const h of holes) {
@@ -128,22 +134,27 @@ function update(dt) {
       }
       continue;
     }
-    // Cheap reject before testing every hole
-    let near = false;
-    for (const h of holes) {
-      if (Math.abs(ob.x - h.x) <= maxReach && Math.abs(ob.z - h.z) <= maxReach) {
-        near = true; break;
-      }
-    }
-    if (!near) continue;
 
     // Skip airborne slices
     if (ob.baseY > 0.5) continue;
 
+    // Query grid for each hole's reach and test eat conditions
     for (const h of holes) {
-      if (canEat(h, ob.r) &&
+      // Use grid query if available, otherwise fallback to checking all objects
+      let isNear = false;
+      if (PROP_GRID && typeof PROP_GRID.queryCircle === 'function') {
+        // Grid query returns props within the circle
+        const queryResults = PROP_GRID.queryCircle(h.x, h.z, h.r + 40, []);
+        isNear = queryResults.indexOf(ob) !== -1;
+      } else {
+        // Fallback: use cheap axis-aligned reject
+        isNear = Math.abs(ob.x - h.x) <= maxReach && Math.abs(ob.z - h.z) <= maxReach;
+      }
+
+      if (isNear && canEat(h, ob.r) &&
           dist(h.x, h.z, ob.x, ob.z) + ob.r <= h.r) {  // fully inside the mouth
         ob.falling = true; ob.hole = h; ob.vy = 0;
+        gridRemove(ob);  // remove from grid when falling starts
         if (typeof thawProp === 'function') thawProp(ob.mesh);
         // When a slice starts falling, drop other slices in the same stack
         if (ob.stackId) {

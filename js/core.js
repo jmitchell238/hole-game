@@ -87,12 +87,108 @@ function rand(a,b) { return a + currentRandSource()*(b-a); }
 /** Pick random element from array. */
 function pick(arr) { return arr[(currentRandSource()*arr.length)|0]; }
 
+// ---- Spatial hash grid -------------------------------------------------------
+/** Uniform spatial hash grid for broad-phase collision queries. */
+function makeGrid(cellSize) {
+  const grid = new Map();  // Map<string, array of objects>
+  const _cellSize = cellSize;
+
+  function getCellKey(x, z) {
+    const cx = Math.floor(x / _cellSize);
+    const cz = Math.floor(z / _cellSize);
+    return `${cx}:${cz}`;
+  }
+
+  function insert(obj, x, z) {
+    const key = getCellKey(x, z);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(obj);
+    obj._gridKey = key;
+  }
+
+  function remove(obj) {
+    const key = obj._gridKey;
+    if (!key) return;
+    const cell = grid.get(key);
+    if (cell) {
+      const idx = cell.indexOf(obj);
+      if (idx !== -1) cell.splice(idx, 1);
+      if (cell.length === 0) grid.delete(key);
+    }
+    obj._gridKey = undefined;
+  }
+
+  function queryCircle(cx, cz, r, out) {
+    if (!out) out = [];
+    const cellMin = Math.floor((cx - r) / _cellSize);
+    const cellMax = Math.floor((cx + r) / _cellSize);
+    const cellMinZ = Math.floor((cz - r) / _cellSize);
+    const cellMaxZ = Math.floor((cz + r) / _cellSize);
+    const r2 = r * r;
+
+    for (let gx = cellMin; gx <= cellMax; gx++) {
+      for (let gz = cellMinZ; gz <= cellMaxZ; gz++) {
+        const key = `${gx}:${gz}`;
+        const cell = grid.get(key);
+        if (!cell) continue;
+        for (const obj of cell) {
+          const dx = obj.x - cx, dz = obj.z - cz;
+          if (dx * dx + dz * dz <= r2) out.push(obj);
+        }
+      }
+    }
+    return out;
+  }
+
+  function queryRect(minX, maxX, minZ, maxZ, out) {
+    if (!out) out = [];
+    const cellMinX = Math.floor(minX / _cellSize);
+    const cellMaxX = Math.floor(maxX / _cellSize);
+    const cellMinZ = Math.floor(minZ / _cellSize);
+    const cellMaxZ = Math.floor(maxZ / _cellSize);
+
+    for (let gx = cellMinX; gx <= cellMaxX; gx++) {
+      for (let gz = cellMinZ; gz <= cellMaxZ; gz++) {
+        const key = `${gx}:${gz}`;
+        const cell = grid.get(key);
+        if (!cell) continue;
+        for (const obj of cell) {
+          if (obj.x >= minX && obj.x <= maxX && obj.z >= minZ && obj.z <= maxZ) {
+            out.push(obj);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function clear() {
+    grid.clear();
+  }
+
+  function cellCount() {
+    return grid.size;
+  }
+
+  function totalObjects() {
+    let count = 0;
+    for (const cell of grid.values()) count += cell.length;
+    return count;
+  }
+
+  return {
+    insert, remove, queryCircle, queryRect, clear,
+    cellCount, totalObjects, _grid: grid  // expose grid for testing
+  };
+}
+
 // ---- Node.js export guard ---------------------------------------------------
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SIZE_TIERS, GROW, GROW_FALLOFF, EAT_RATIO, BATTLE_EVERY, MATCH_TIME, PVP_GRACE,
     clamp, dist, areaOf, isBattleLevel, sizeLevel,
     growRadius, maxHoleRadiusFor, canEatR, soloTargetPct, soloReward, battleReward, checkinToday,
-    mulberry32, setRandSource, currentRandSource, rand, pick
+    mulberry32, setRandSource, currentRandSource, rand, pick,
+    makeGrid
   };
 }
