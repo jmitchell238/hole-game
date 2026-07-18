@@ -98,7 +98,7 @@ function update(dt) {
       ob.mesh.rotation.x += dt*1.1; ob.mesh.rotation.z += dt*0.7;
       // Growth counts once it's fully below the surface…
       if (!ob.swallowed && ob.mesh.position.y < -(ob.h + 3)) {
-        grow(h, areaOf(ob.r)*GROW); ob.swallowed = true;
+        grow(h, areaOf(ob.r)); ob.swallowed = true;
         devouredArea += areaOf(ob.r);
         // Spawn popup for player only
         if (h.isPlayer) {
@@ -188,7 +188,7 @@ function update(dt) {
       for (const b of holes) {
         if (a === b || b.eaten) continue;
         if (!inGrace && a.r >= 1.75 * b.r && dist(a.x, a.z, b.x, b.z) < a.r) {
-          grow(a, areaOf(b.r)*GROW);
+          grow(a, areaOf(b.r));
           b.eaten = true;
         }
       }

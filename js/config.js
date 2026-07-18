@@ -11,7 +11,8 @@ const GAME_VERSION = '2.42.000';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
-const GROW = 0.8;
+const GROW = 0.40;
+const GROW_FALLOFF = 30;
 const EAT_RATIO = 1.5;            // must be 1.5x an object's footprint to eat it
 const GRAVITY = 110;              // fall acceleration into the hole
 const HOLE_DEPTH = 150;           // how deep the visible pit goes
@@ -101,7 +102,7 @@ const GFX = {
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
 function isBattleLevel(n) { return n % BATTLE_EVERY === 0; }
 
-const SIZE_TIERS = [12, 16, 21, 27, 35, 45, 58, 75, 95, 120];
+const SIZE_TIERS = [8, 9, 11, 12, 14, 16, 18, 21, 24, 28, 32, 37, 42, 48, 55, 63, 73, 84, 96, 110];
 function sizeLevel(r) {
   let lv = 1;
   for (let i = 1; i < SIZE_TIERS.length; i++)

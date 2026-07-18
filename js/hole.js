@@ -143,13 +143,14 @@ function canEat(hole, r) { return hole.r >= r * EAT_RATIO; }
 
 /** Max hole radius for the current map — prevents crashes when r > world. */
 function maxHoleRadius() {
-  if (!currentLevel || !currentLevel.world) return 180;
+  if (!currentLevel || !currentLevel.world) return 110;
   // Cap earlier so late-game camera never sees the whole map as dots.
   // Leave margin so clamp(min,max) stays valid and Shape/scale stay sane.
-  return Math.min(currentLevel.world * 0.34, GFX.lowEnd ? 140 : 180);
+  return Math.min(currentLevel.world * 0.25, SIZE_TIERS[SIZE_TIERS.length - 1]);
 }
 
 function grow(h, addArea) {
+  addArea *= GROW * GROW_FALLOFF / (GROW_FALLOFF + h.r);
   if (battleMode) addArea *= Math.max(0.25, 1 - h.r / 240);
   h.r = Math.sqrt((areaOf(h.r) + addArea) / Math.PI);
   const cap = maxHoleRadius();
@@ -206,7 +207,7 @@ function moveHole(h, dt) {
   const W = currentLevel.world;
   const cap = maxHoleRadius();
   if (h.r > cap) h.r = cap;
-  const speed = 58 + sizeLevel(h.r) * 3.5;
+  const speed = 58 + sizeLevel(h.r) * 1.75;
   const d = dist(h.x, h.z, h.tx, h.tz);
   if (d > 1) {
     const step = Math.min(speed * dt, d);
