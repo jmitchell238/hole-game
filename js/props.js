@@ -22,9 +22,13 @@ const STATS = {
   house:       { r: 18,  h: 45 },
   apartment:   { r: 20,  h: 64 },
   tower:       { r: 28,  h: 112 },
+  aptSlice:    { r: 14,  h: 13 },
+  aptSliceRoof:{ r: 14,  h: 13 },
+  towerSlice:  { r: 15,  h: 16 },
+  towerSliceRoof:{ r: 15, h: 16 },
 };
 // Only the big stuff casts shadows (keeps the framerate healthy).
-const SHADOW_CASTERS = new Set(['tree','car','bus','shop','house','apartment','tower','fountain']);
+const SHADOW_CASTERS = new Set(['tree','car','bus','shop','house','apartment','tower','fountain','aptSlice','aptSliceRoof','towerSlice','towerSliceRoof']);
 const CAR_COLORS = [0x4f8ae8,0xe85555,0xf0c548,0x9b5ad6,0x48c9a9,0xf2f4f6,0x3d4854];
 const SHIRT_COLORS = [0xe85555,0x4f8ae8,0x4fc46a,0xf0a848,0x9b5ad6,0xf2f4f6];
 const DOG_COLORS = [0x8a6642,0xf2f4f6,0x3a3a3a,0xc9a578];
@@ -644,10 +648,50 @@ const BUILDERS = {
 
     return g;
   },
+  aptSlice() {
+    const g = new THREE.Group();
+    const wall = pick(APT_WALLS);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(28, 13, 28),
+      [wall, wall, APT_TOP, APT_TOP, wall, wall]);
+    box.position.y = 6.5; g.add(box);
+    return g;
+  },
+  aptSliceRoof() {
+    const g = new THREE.Group();
+    const wall = pick(APT_WALLS);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(28, 13, 28),
+      [wall, wall, APT_TOP, APT_TOP, wall, wall]);
+    box.position.y = 6.5; g.add(box);
+    // Thin dark parapet slab at top
+    g.add(part(new THREE.BoxGeometry(30, 1.5, 30), MAT.dark, 0, 13.75, 0));
+    // Small metal AC box
+    g.add(part(new THREE.BoxGeometry(4, 3, 4), MAT.metal, -8, 16, 4));
+    return g;
+  },
+  towerSlice() {
+    const g = new THREE.Group();
+    const wall = pick(TOWER_WALLS);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(30, 16, 30),
+      [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
+    box.position.y = 8; g.add(box);
+    return g;
+  },
+  towerSliceRoof() {
+    const g = new THREE.Group();
+    const wall = pick(TOWER_WALLS);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(30, 16, 30),
+      [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
+    box.position.y = 8; g.add(box);
+    // Cream cap slab at top
+    g.add(part(new THREE.BoxGeometry(32, 1.5, 32), MAT.cream, 0, 16.75, 0));
+    // Thin antenna
+    g.add(part(new THREE.CylinderGeometry(0.7, 0.7, 10, 8), MAT.cream, 0, 22, 0));
+    return g;
+  },
 };
 
 // Spawn one prop into the world (levels call this from populate()).
-function addProp(name, x, z, rotY) {
+function addProp(name, x, z, rotY, opts) {
   const s = STATS[name];
   if (!s || !BUILDERS[name]) {
     console.warn('[props] unknown prop', name);
@@ -683,11 +727,12 @@ function addProp(name, x, z, rotY) {
     mesh.matrixAutoUpdate = false;
   }
 
-  mesh.position.set(x, 0, z);
+  const baseY = (opts && opts.y) || 0;
+  mesh.position.set(x, baseY, z);
   mesh.rotation.y = rot;
   mesh.updateMatrix();
   mesh.matrixAutoUpdate = false;
   scene.add(mesh);
   objects.push({ mesh, x, z, r: s.r, h: s.h, vy: 0,
-    falling: false, hole: null, dead: false, name: name });
+    falling: false, hole: null, dead: false, name: name, baseY: baseY, stackId: (opts && opts.stackId) || null });
 }

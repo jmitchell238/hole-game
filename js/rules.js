@@ -13,7 +13,7 @@ function botThink(bot) {
   const huntR = 220 + bot.r * 2;
   const huntR2 = huntR * huntR;
   for (const ob of objects) {
-    if (ob.falling || ob.dead || !canEat(bot, ob.r)) continue;
+    if (ob.falling || ob.dead || ob.baseY > 0.5 || !canEat(bot, ob.r)) continue;
     const dx = ob.x - bot.x, dz = ob.z - bot.z;
     const d2 = dx * dx + dz * dz;
     if (d2 > huntR2 || d2 >= bd * bd) continue;
@@ -115,6 +115,19 @@ function update(dt) {
       }
       continue;
     }
+    // Settling slices: drop smoothly to their target position when a slice above is eaten
+    if (ob.settling && ob.targetY !== undefined) {
+      ob.mesh.position.y = Math.max(ob.targetY, ob.mesh.position.y - 90*dt);
+      if (ob.mesh.position.y <= ob.targetY) {
+        ob.baseY = ob.targetY;
+        ob.settling = false;
+        ob.mesh.matrixAutoUpdate = false;
+        ob.mesh.updateMatrix();
+      } else {
+        ob.mesh.updateMatrix();
+      }
+      continue;
+    }
     // Cheap reject before testing every hole
     let near = false;
     for (const h of holes) {
@@ -124,11 +137,24 @@ function update(dt) {
     }
     if (!near) continue;
 
+    // Skip airborne slices
+    if (ob.baseY > 0.5) continue;
+
     for (const h of holes) {
       if (canEat(h, ob.r) &&
           dist(h.x, h.z, ob.x, ob.z) + ob.r <= h.r) {  // fully inside the mouth
         ob.falling = true; ob.hole = h; ob.vy = 0;
         if (typeof thawProp === 'function') thawProp(ob.mesh);
+        // When a slice starts falling, drop other slices in the same stack
+        if (ob.stackId) {
+          for (const o of objects) {
+            if (o.stackId === ob.stackId && !o.falling && !o.dead) {
+              o.targetY = (o.targetY !== undefined ? o.targetY : o.baseY) - ob.h;
+              o.settling = true;
+              if (typeof thawProp === 'function') thawProp(o.mesh);
+            }
+          }
+        }
         break;
       }
     }

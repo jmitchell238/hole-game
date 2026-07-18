@@ -101,6 +101,18 @@ function registerSkyrisesProps() {
 }
 registerSkyrisesProps();
 
+// Helper to build a stack of slices at the same x,z with increasing y
+function stackSlices(wrappedAddProp, name, x, z, rotY, sliceCount, isRoof) {
+  const stackId = 'stk' + Math.random().toString(36).substr(2, 9);
+  const sliceHeight = name.includes('tower') ? 16 : 13;
+  for (let i = 0; i < sliceCount; i++) {
+    const sliceName = (i === sliceCount - 1 && isRoof) ?
+      (name.includes('tower') ? 'towerSliceRoof' : 'aptSliceRoof') :
+      (name.includes('tower') ? 'towerSlice' : 'aptSlice');
+    wrappedAddProp(sliceName, x, z, rotY, { y: i * sliceHeight, stackId });
+  }
+}
+
 // District plan: one downtown cluster (two on big maps) seeded at random,
 // parks scattered through the rest, suburbs everywhere else. The player's
 // spawn block is always a park, somewhere near the middle.
@@ -267,14 +279,14 @@ function populate(addProp) {
 
   // Wrapper to track skyrise placements and props
   const origAddProp = addProp;
-  const wrappedAddProp = (name, x, z, rotY) => {
+  const wrappedAddProp = (name, x, z, rotY, opts) => {
     if (name === 'skyrise' || name === 'skyrise2') {
       skyrisesPlaced++;
     }
     if (STATS[name]) {
       tallestProp = Math.max(tallestProp, STATS[name].h || 0);
     }
-    origAddProp(name, x, z, rotY);
+    origAddProp(name, x, z, rotY, opts);
     // Expose metrics globally for smoke testing (update after each prop)
     window.skyrisesPlaced = skyrisesPlaced;
     window.tallestProp = tallestProp;
@@ -316,7 +328,7 @@ function populate(addProp) {
 
     if (type === 'downtown') {
       if (isCore) {
-        // Core district: 2-3 skyrises with spaced positioning
+        // Core district: 2-3 tower stacks with spaced positioning
         const skyCount = Math.random() < 0.6 ? 3 : 2;
         const positions = [
           [-60, -60], [60, -60], [-60, 60], [60, 60]
@@ -326,12 +338,14 @@ function populate(addProp) {
           chosen.push(positions[k]);
         }
         for (const [dx, dz] of chosen) {
-          const skyType = Math.random() < 0.5 ? 'skyrise' : 'skyrise2';
-          wrappedAddProp(skyType, cx + dx, cz + dz, 0);
+          const stackHeight = 4 + Math.floor(Math.random() * 3);  // 4-6 slices
+          stackSlices(wrappedAddProp, 'tower', cx + dx, cz + dz, 0, stackHeight, true);
         }
-        // Add 2 apartments and 2 shops away from skyrises for density
-        wrappedAddProp('apartment', ...inBlock(-30, 0));
-        wrappedAddProp('apartment', ...inBlock(30, 0));
+        // Add 2 apartment stacks and 2 shops away from tower stacks for density
+        const aptH1 = 2 + Math.floor(Math.random() * 3);  // 2-4 slices
+        stackSlices(wrappedAddProp, 'apartment', cx - 30, cz, 0, aptH1, true);
+        const aptH2 = 2 + Math.floor(Math.random() * 3);
+        stackSlices(wrappedAddProp, 'apartment', cx + 30, cz, 0, aptH2, true);
         wrappedAddProp('shop', ...inBlock(0, -75), Math.PI/2);
         wrappedAddProp('shop', ...inBlock(0, 75), -Math.PI/2);
         for (let k = 0; k < 8; k++)
@@ -341,13 +355,16 @@ function populate(addProp) {
         wrappedAddProp('bench', ...inBlock(-30, 40), Math.PI);
         wrappedAddProp('bench', ...inBlock(30, -40), 0);
       } else {
-        // Non-core downtown: denser layout with tower at center, 2 apartments, 5-6 shops
-        wrappedAddProp('tower', cx, cz, 0);
+        // Non-core downtown: denser layout with tower stack at center, 2 apartment stacks, 5-6 shops
+        const towerH = 3 + Math.floor(Math.random() * 3);  // 3-5 slices
+        stackSlices(wrappedAddProp, 'tower', cx, cz, 0, towerH, true);
 
-        // 2 apartments on perpendicular axes (avoiding corner shops) with small jitter
+        // 2 apartment stacks on perpendicular axes (avoiding corner shops) with small jitter
         const apOff = BLOCK/2 - 40;
-        wrappedAddProp('apartment', ...inBlock(-apOff + rand(-5, 5), 0 + rand(-5, 5)));
-        wrappedAddProp('apartment', ...inBlock(apOff + rand(-5, 5), 0 + rand(-5, 5)));
+        const aptH1 = 2 + Math.floor(Math.random() * 3);
+        stackSlices(wrappedAddProp, 'apartment', cx - apOff + rand(-5, 5), cz + rand(-5, 5), 0, aptH1, true);
+        const aptH2 = 2 + Math.floor(Math.random() * 3);
+        stackSlices(wrappedAddProp, 'apartment', cx + apOff + rand(-5, 5), cz + rand(-5, 5), 0, aptH2, true);
 
         // 5-6 shops: 3 original corners + 3 new shops avoiding apartment positions
         wrappedAddProp('shop', ...inBlock(-80 + rand(-5, 5), -80 + rand(-5, 5)));
@@ -381,7 +398,8 @@ function populate(addProp) {
         wrappedAddProp('house', cx + hx + rand(-4, 4), cz + hz + rand(-4, 4),
           hz < 0 ? Math.PI : 0);
       if (Math.random() < 0.4) {
-        wrappedAddProp('apartment', cx, cz - 58, Math.PI);
+        const aptH = 2 + Math.floor(Math.random() * 2);  // 2-3 slices
+        stackSlices(wrappedAddProp, 'apartment', cx, cz - 58, Math.PI, aptH, true);
         wrappedAddProp('shop', cx, cz + 58, 0);
       } else {
         wrappedAddProp('house', cx + rand(-4, 4), cz - 58, Math.PI);

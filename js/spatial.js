@@ -113,7 +113,7 @@ function streamProps(force) {
     }
 
     const rad = Math.max(o.r * 1.5, (o.h || 4) * 0.6, 6);
-    _sphere.center.set(o.x, (o.h || 8) * 0.4, o.z);
+    _sphere.center.set(o.x, (o.baseY||0) + (o.h || 8) * 0.4, o.z);
     _sphere.radius = rad;
 
     const on = o._streamed
