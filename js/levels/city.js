@@ -186,7 +186,7 @@ function pickBotSpawns(px, pz) {
 }
 
 function generate() {
-  GRID_N = 5 + ((Math.random()*2)|0);            // 5–6 blocks per side
+  GRID_N = 4;                                     // smaller, fully clearable city
   BLOCK  = Math.round(rand(215, 265));
   ROAD   = Math.round(rand(42, 62));
   P      = BLOCK + ROAD;
@@ -552,6 +552,7 @@ registerLevel({
   skirtColor: 0x5a4a3a,
   progressLabel: 'City devoured',
   startR: 8,
+  targetPct: 100,
   // world, playerSpawn, and botSpawns are rolled by generate() every match.
   generate,
   createGroundTexture: cityGroundTexture,

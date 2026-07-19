@@ -44,13 +44,13 @@ function init(level) {
   camera.lookAt(player.x, 0, player.z);
   if (typeof streamProps === 'function' && GFX.streamProps) streamProps(true);
 
-  // Timer: solo 240s, battle always 150s (fixed pacing, no level override)
+  // Timer: solo 300s, battle always 150s (fixed pacing, no level override)
   const isSolo = !battleMode;
-  timeLeft = isSolo ? 240 : MATCH_TIME;
-  matchTime = isSolo ? 240 : MATCH_TIME;   // set global for grace period calculation
+  timeLeft = isSolo ? 300 : MATCH_TIME;
+  matchTime = isSolo ? 300 : MATCH_TIME;   // set global for grace period calculation
 
   // Solo objective: target percentage increases with campaign level
-  targetPct = soloTargetPct(SAVE.campaignLevel);
+  targetPct = (currentLevel && currentLevel.targetPct != null) ? currentLevel.targetPct : soloTargetPct(SAVE.campaignLevel);
   soloWon = false;
 
   // Hide leaderboard during solo, show during battles
