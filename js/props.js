@@ -12,16 +12,16 @@ const STATS = {
   cone:        { r: 3,   h: 9 },
   streetlight: { r: 2,   h: 26 },
   bench:       { r: 6,   h: 5 },
-  fence:       { r: 7,   h: 7 },
+  fence:       { r: 12,  h: 7 },
   bush:        { r: 6,   h: 8 },
   fountain:    { r: 9,   h: 12 },
   tree:        { r: 9,   h: 36 },
-  car:         { r: 10,  h: 10 },
-  bus:         { r: 16,  h: 13 },
-  shop:        { r: 14,  h: 24 },
-  house:       { r: 18,  h: 45 },
+  car:         { r: 10,  h: 8 },
+  bus:         { r: 17,  h: 14 },
+  shop:        { r: 13,  h: 21 },
+  house:       { r: 14,  h: 36 },
   apartment:   { r: 20,  h: 64 },
-  tower:       { r: 28,  h: 112 },
+  tower:       { r: 26,  h: 110 },
   aptSlice:    { r: 14,  h: 13 },
   aptSliceRoof:{ r: 14,  h: 13 },
   towerSlice:  { r: 15,  h: 16 },
@@ -51,56 +51,62 @@ function houseWall(base, withDoor) {
     for (let y = 12; y < 256; y += 16) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
     }
+    // Windows ~7 units tall: 256px = 24 units, so 7 units ≈ 73px, draw ~66px for frame
     const win = (x, y) => {
-      g.fillStyle = '#fff'; g.fillRect(x-6, y-6, 60, 70);    // white 6px frame
-      g.fillStyle = '#4f8ae8'; g.fillRect(x, y, 48, 58);     // brighter blue glass
-      g.fillStyle = '#fff'; g.fillRect(x+22, y, 4, 58); g.fillRect(x, y+26, 48, 5);
+      g.fillStyle = '#fff'; g.fillRect(x-6, y-6, 55, 66);    // white frame (~5px)
+      g.fillStyle = '#4f8ae8'; g.fillRect(x, y, 43, 54);     // brighter blue glass
+      g.fillStyle = '#fff'; g.fillRect(x+19, y, 3, 54); g.fillRect(x, y+24, 43, 4);
     };
     win(38, 34); win(170, 34);                          // upper floor
-    win(38, 152);
+    win(38, 155);
     if (withDoor) {
-      g.fillStyle = '#fff'; g.fillRect(158, 140, 66, 116);
-      g.fillStyle = '#7a4a2b'; g.fillRect(164, 146, 54, 110);
+      g.fillStyle = '#fff'; g.fillRect(158, 138, 66, 120);
+      g.fillStyle = '#7a4a2b'; g.fillRect(164, 144, 54, 114);
       g.fillStyle = '#e8c86a';
       g.beginPath(); g.arc(210, 205, 4, 0, 7); g.fill();
-    } else win(170, 152);
+    } else win(170, 155);
   });
 }
 
-// Skyscraper glass: mullioned window grid with a few lit offices.
+// Skyscraper glass: mullioned window grid with a few lit offices (~7 units tall for ~110-unit tower).
 function towerWall() {
   return canvasTex(256, 512, g => {
     g.fillStyle = '#3f8fd0'; g.fillRect(0, 0, 256, 512);  // blue glass base
-    // Cream mullions and window panes
-    for (let y = 8; y < 500; y += 26) for (let x = 8; x < 248; x += 30) {
+    // Cream mullions and larger window panes (~35px tall for ~7 world units)
+    for (let y = 6; y < 512; y += 40) for (let x = 6; x < 248; x += 30) {
       const r = Math.random();
       g.fillStyle = r < 0.12 ? '#ffe9a8' : r < 0.5 ? '#6fb4e8' : '#4f96d0';
-      g.fillRect(x, y, 24, 20);
+      g.fillRect(x, y, 24, 34);
     }
     // Cream mullions (~6px) separating panes
     g.strokeStyle = '#ece4d0'; g.lineWidth = 6;
-    for (let y = 8; y < 500; y += 26) {
+    for (let y = 6; y < 512; y += 40) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
     }
-    for (let x = 8; x < 248; x += 30) {
+    for (let x = 6; x < 248; x += 30) {
       g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 512); g.stroke();
     }
-    // Solid cream horizontal bands every ~5 rows
+    // Solid cream horizontal bands every ~6 rows
     g.fillStyle = '#ece4d0';
-    for (let y = 130; y < 512; y += 130) {
+    for (let y = 120; y < 512; y += 120) {
       g.fillRect(0, y, 256, 8);
     }
   });
 }
 
-// Shop front: painted wall, big display window, door.
+// Shop front: painted wall, display window, door (~7 units tall windows for 20-unit height).
 function shopWall(paint) {
   return canvasTex(256, 256, g => {
     g.fillStyle = paint; g.fillRect(0, 0, 256, 256);
-    g.fillStyle = '#fff'; g.fillRect(20, 96, 148, 128);
-    g.fillStyle = '#bcd8e8'; g.fillRect(28, 104, 132, 112);
-    g.fillStyle = '#fff'; g.fillRect(186, 96, 54, 160);
-    g.fillStyle = '#4a5560'; g.fillRect(192, 102, 42, 154);
+    // Main display window: ~90px wide, ~90px tall (7 units on 20-unit shop) with 4px white frame
+    g.fillStyle = '#fff'; g.fillRect(15, 70, 96, 96);
+    g.fillStyle = '#bcd8e8'; g.fillRect(19, 74, 88, 88);
+    // Door on right: ~50px wide, ~90px tall
+    g.fillStyle = '#fff'; g.fillRect(180, 70, 54, 96);
+    g.fillStyle = '#4a5560'; g.fillRect(186, 76, 42, 90);
+    // Door handle
+    g.fillStyle = '#e8c86a';
+    g.beginPath(); g.arc(225, 120, 3, 0, 7); g.fill();
   });
 }
 
@@ -112,11 +118,12 @@ function aptWall(base) {
     for (let y = 10; y < 384; y += 12) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
     }
-    for (let y = 18; y < 340; y += 52) for (let x = 20; x < 236; x += 44) {
-      g.fillStyle = '#fff'; g.fillRect(x-3, y-3, 34, 40);      // white frame
+    // Windows ~7 units tall: 384px = 60 units, so 7 units ≈ 45px, draw ~44px for frame
+    for (let y = 20; y < 355; y += 50) for (let x = 20; x < 236; x += 44) {
+      g.fillStyle = '#fff'; g.fillRect(x-3, y-3, 34, 44);      // white frame
       g.fillStyle = Math.random() < 0.2 ? '#ffe9a8' : '#4f8ae8';  // brighter blue
-      g.fillRect(x, y, 28, 34);
-      g.fillStyle = '#fff'; g.fillRect(x+12, y, 3, 34);
+      g.fillRect(x, y, 28, 38);
+      g.fillStyle = '#fff'; g.fillRect(x+12, y, 3, 38);
     }
     g.fillStyle = '#fff'; g.fillRect(100, 330, 60, 54);
     g.fillStyle = '#4a3a2a'; g.fillRect(106, 336, 48, 48);
@@ -635,7 +642,7 @@ const BUILDERS = {
     // Try to use a random car model (scale to horizontal len ≈ 20)
     const carModels = ['car_sedan', 'car_taxi', 'car_police', 'car_hatchback', 'car_stationwagon'];
     const modelKey = pick(carModels);
-    // For cars, use max of x and z as the footprint length
+    // For cars, use max of x and z as the footprint length, scale height to ~8 units
     const modelCloned = modelClone(modelKey, 20, 'max_xz');
     if (modelCloned) {
       // Ensure it's grounded (bbox.min.y === 0)
@@ -643,17 +650,17 @@ const BUILDERS = {
       if (box.min.y !== 0) modelCloned.position.y -= box.min.y;
       return modelCloned;
     }
-    // Fallback: original procedural car (mobile: body+cabin only, no wheels)
+    // Fallback: procedural car, shorter to reflect true proportions (h≈8 instead of 10)
     const g = new THREE.Group();
     const body = new THREE.MeshLambertMaterial({ color: pick(CAR_COLORS) });
-    g.add(part(new THREE.BoxGeometry(20, 5, 10), body, 0, 4.2, 0));
-    g.add(part(new THREE.BoxGeometry(10, 4.2, 8.8), MAT.glass, -1, 8.2, 0));
+    g.add(part(new THREE.BoxGeometry(20, 5, 10), body, 0, 3.5, 0));  // lowered center
+    g.add(part(new THREE.BoxGeometry(10, 3, 8.8), MAT.glass, -1, 6.8, 0));  // shorter cabin
     if (!GFX.mobile) {
-      g.add(part(new THREE.BoxGeometry(20.4, 1.2, 10.4), MAT.dark, 0, 2, 0));
-      g.add(part(new THREE.BoxGeometry(10.4, 0.8, 9.2), body, -1, 10.2, 0));
+      g.add(part(new THREE.BoxGeometry(20.4, 1.2, 10.4), MAT.dark, 0, 1.5, 0));  // lowered bumper
+      g.add(part(new THREE.BoxGeometry(10.4, 0.8, 9.2), body, -1, 7.8, 0));  // lowered roof trim
       const wheel = new THREE.CylinderGeometry(2, 2, 1.6, PROP_SEG());
       for (const [wx, wz] of [[-6,5],[6,5],[-6,-5],[6,-5]]) {
-        const w = part(wheel, MAT.tire, wx, 2, wz);
+        const w = part(wheel, MAT.tire, wx, 1.8, wz);
         w.rotation.x = Math.PI/2; g.add(w);
       }
     }
@@ -662,10 +669,11 @@ const BUILDERS = {
   bus() {
     const g = new THREE.Group();
     const paint = new THREE.MeshLambertMaterial({ color: 0xf0a830 });
-    g.add(part(new THREE.BoxGeometry(34, 10, 11), paint, 0, 7.2, 0));
-    g.add(part(new THREE.BoxGeometry(34.4, 3.2, 11.4), MAT.glass, 0, 9.6, 0));
+    // Bus body: 34 units long, 11 units tall (positioned to top out at ~14 units)
+    g.add(part(new THREE.BoxGeometry(34, 11, 11), paint, 0, 7, 0));
+    g.add(part(new THREE.BoxGeometry(34.4, 3, 11.4), MAT.glass, 0, 8.8, 0));
     if (!GFX.mobile) {
-      g.add(part(new THREE.BoxGeometry(34.4, 1, 11.4), MAT.dark, 0, 2.6, 0));
+      g.add(part(new THREE.BoxGeometry(34.4, 1, 11.4), MAT.dark, 0, 2.5, 0));
       const wheel = new THREE.CylinderGeometry(2.2, 2.2, 1.8, PROP_SEG());
       for (const [wx, wz] of [[-11,5.5],[11,5.5],[-11,-5.5],[11,-5.5]]) {
         const w = part(wheel, MAT.tire, wx, 2.2, wz);
@@ -700,33 +708,34 @@ const BUILDERS = {
     const v = pick(getPaletteHouseWalls());
     // Mobile: single material body (1 draw call) instead of 6 face materials
     if (GFX.mobile) {
-      g.add(part(new THREE.BoxGeometry(34, 28, 34), v.front, 0, 14, 0));
-      g.add(part(new THREE.BoxGeometry(38, 10, 38), getPaletteRoof(), 0, 32, 0));
+      g.add(part(new THREE.BoxGeometry(28, 24, 28), v.front, 0, 12, 0));
+      g.add(part(new THREE.BoxGeometry(32, 9, 32), getPaletteRoof(), 0, 28, 0));
       return g;
     }
-    const box = new THREE.Mesh(new THREE.BoxGeometry(34, 28, 34),
+    // Narrower, more proportionate body (28x24x28 instead of 34x28x34)
+    const box = new THREE.Mesh(new THREE.BoxGeometry(28, 24, 28),
       [v.side, v.side, v.plain, v.plain, v.front, v.side]);
-    box.position.y = 14; g.add(box);
+    box.position.y = 12; g.add(box);
 
     // Gray plinth base
-    g.add(part(new THREE.BoxGeometry(38, 2, 38), MAT.plinth, 0, 1, 0));
+    g.add(part(new THREE.BoxGeometry(32, 2, 32), MAT.plinth, 0, 1, 0));
 
     // Gable roof: triangular prism using CylinderGeometry with 3 sides
-    // Radius 23 gives triangle base ~40 (roof overhang), scaled for height ~14
+    // Radius 18 gives triangle base ~32 (roof overhang), scaled for height ~12
     const roofMat = getPaletteRoof();
     const creamMat = new THREE.MeshLambertMaterial({ color: 0xece4d0 });
     const roof = new THREE.Mesh(
-      new THREE.CylinderGeometry(23, 23, 40, 3),
+      new THREE.CylinderGeometry(18, 18, 32, 3),
       [roofMat, creamMat, creamMat]  // [side, topCap, bottomCap]
     );
     roof.rotation.x = Math.PI / 2;
-    roof.scale.y = 0.35;
-    roof.position.set(0, 34, 0);
+    roof.scale.y = 0.375;
+    roof.position.set(0, 30, 0);
     g.add(roof);
 
-    // White/cream chimney with darker top rim
-    g.add(part(new THREE.BoxGeometry(4, 12, 4), MAT.white, 9, 36, -8));
-    g.add(part(new THREE.BoxGeometry(5, 1, 5), MAT.roofRim, 9, 42.5, -8));  // top rim
+    // White/cream chimney with darker top rim (scaled down proportionally)
+    g.add(part(new THREE.BoxGeometry(4, 12, 4), MAT.white, 7, 33, -7));
+    g.add(part(new THREE.BoxGeometry(5, 1, 5), MAT.roofRim, 7, 39.5, -7));  // top rim
 
     return g;
   },
