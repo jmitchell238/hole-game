@@ -109,7 +109,7 @@ function makeHole(x, z, name, isPlayer) {
   tag.className = 'tag'; tag.textContent = name;
   tag.style.color = tagColor;
   document.getElementById('tags').appendChild(tag);
-  const startR = (typeof currentLevel !== 'undefined' && currentLevel && currentLevel.startR) || 12;
+  const startR = (typeof currentLevel !== 'undefined' && currentLevel && currentLevel.startR) || SIZE_TIERS[0];
   return { wall, cap, mouth, ring, ghost, tag, deco, x, z, r: startR, trueR: startR, name, isPlayer,
     tx: x, tz: z, retarget: 0, _ringLv: 1, _ringJitter: Math.random() * 0.06,
     customPit: pitMat === PIT_MAT ? null : pitMat };
@@ -206,9 +206,10 @@ function moveHole(h, dt) {
   const W = currentLevel.world;
   const cap = maxHoleRadius();
   if (h.trueR > cap) h.trueR = cap;
-  // Animate h.r toward the tier target: quick bump (~0.6s to 95%)
+  // Stepped growth: hold the current tier's radius, then snap instantly to the
+  // next tier the moment trueR crosses its threshold (no gradual glide).
   const tierTarget = tierRadiusFor(h.trueR, cap);
-  h.r += (tierTarget - h.r) * Math.min(1, dt * 5);
+  h.r = tierTarget;
   const speed = 58 + sizeLevel(h.trueR) * 1.75;
   const d = dist(h.x, h.z, h.tx, h.tz);
   if (d > 1) {

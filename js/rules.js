@@ -101,7 +101,23 @@ function update(dt) {
         ob.mesh.position.x = h.x + dx/dd*maxD;
         ob.mesh.position.z = h.z + dz/dd*maxD;
       }
-      ob.mesh.rotation.x += dt*1.1; ob.mesh.rotation.z += dt*0.7;
+      // Tilt/topple toward the hole as it falls
+      const dirToHoleX = h.x - ob.mesh.position.x;
+      const dirToHoleZ = h.z - ob.mesh.position.z;
+      const dirDist = Math.hypot(dirToHoleX, dirToHoleZ);
+      // Lean factor increases as object falls deeper (from y=0 to y<-(ob.h+3))
+      const fallProgress = Math.max(0, -ob.mesh.position.y / (ob.h + 3));
+      const leanStrength = Math.min(1, fallProgress); // Clamp to [0, 1]
+      if (dirDist > 0.001) {
+        const dirXNorm = dirToHoleX / dirDist;
+        const dirZNorm = dirToHoleZ / dirDist;
+        const tiltAmount = leanStrength * 2.2;
+        ob.mesh.rotation.z += dirXNorm * tiltAmount * dt;
+        ob.mesh.rotation.x += dirZNorm * tiltAmount * dt;
+      }
+      // Residual tumble for physics feel
+      ob.mesh.rotation.x += dt * 0.3;
+      ob.mesh.rotation.z += dt * 0.2;
       // Growth counts once it's fully below the surface…
       if (!ob.swallowed && ob.mesh.position.y < -(ob.h + 3)) {
         grow(h, areaOf(ob.r)); ob.swallowed = true;

@@ -55,18 +55,18 @@ describe('growRadius(r, addArea, battleMode)', () => {
 });
 
 describe('canEatR(holeR, propR)', () => {
-  test('exact 1.5x boundary', () => {
-    // EAT_RATIO = 1.5, so holeR >= propR * 1.5
-    assert.strictEqual(core.canEatR(18, 12), true);   // 18 >= 12*1.5 = 18
-    assert.strictEqual(core.canEatR(17.9, 12), false); // 17.9 < 18
+  test('exact 1.0x boundary', () => {
+    // EAT_RATIO = 1.0, so holeR >= propR * 1.0
+    assert.strictEqual(core.canEatR(12, 12), true);   // 12 >= 12*1.0 = 12
+    assert.strictEqual(core.canEatR(11.9, 12), false); // 11.9 < 12
   });
 
   test('smaller prop always eatable', () => {
     assert.strictEqual(core.canEatR(20, 10), true);
   });
 
-  test('prop barely larger than hole not eatable', () => {
-    assert.strictEqual(core.canEatR(10, 10), false);
+  test('prop same size as hole now eatable', () => {
+    assert.strictEqual(core.canEatR(10, 10), true);
   });
 });
 
@@ -314,7 +314,7 @@ describe('Constants exported', () => {
   });
 
   test('EAT_RATIO', () => {
-    assert.strictEqual(core.EAT_RATIO, 1.5);
+    assert.strictEqual(core.EAT_RATIO, 1.0);
   });
 
   test('BATTLE_EVERY', () => {

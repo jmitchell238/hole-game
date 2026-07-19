@@ -6,7 +6,7 @@
 const SIZE_TIERS = [8, 9, 11, 12, 14, 16, 18, 21, 24, 28, 32, 37, 42, 48, 55, 63, 73, 84, 96, 110];
 const GROW = 0.40;
 const GROW_FALLOFF = 30;
-const EAT_RATIO = 1.5;            // must be 1.5x an object's footprint to eat it
+const EAT_RATIO = 1.0;            // must be 1.0x an object's footprint to eat it
 const BATTLE_EVERY = 5;           // battle occurs every 5th level
 const MATCH_TIME = 150;
 const PVP_GRACE = 15;             // grace period: no hole-vs-hole eating for first 15 seconds
