@@ -193,7 +193,9 @@ function syncHole(h) {
 
   if (h.deco) {
     // Cap cosmetic scale — huge deco meshes at late game can OOM mobile GPUs
-    const decoS = Math.min(s, GFX.lowEnd ? 48 : 90);
+    // But flat image skins are single quads: no memory cost to scale, use full radius
+    const flat = h.deco.userData.flat;
+    const decoS = flat ? s : Math.min(s, GFX.lowEnd ? 48 : 90);
     h.deco.scale.set(decoS, decoS, decoS);
     const decoY = h.deco.userData.flat ? 0.35 : 0;
     h.deco.position.set(h.x, decoY, h.z);

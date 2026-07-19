@@ -118,7 +118,7 @@ function buildSkin(url, cx, cy, rf, processImage) {
       side: THREE.DoubleSide
     });
 
-    const planeScale = 1 / (rf * 0.96);  // Scale plane so inner/outer ring maps to 0.96 units (overlap margin)
+    const planeScale = 0.96 / rf;  // Scale plane so opening (~4% overlap) hugs hole rim without gap
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(planeScale, planeScale),
       material

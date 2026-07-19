@@ -7,7 +7,7 @@
 //   patch — bugfixes, perf, polish
 // Keep CACHE in sw.js in sync: 'voidrush-' + GAME_VERSION
 // Old monochrome labels (v27…v32) map here as 2.MINOR.PATCH (this gen is major 2).
-const GAME_VERSION = '2.43.007';
+const GAME_VERSION = '2.43.008';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const GRAVITY = 110;              // fall acceleration into the hole
 const HOLE_DEPTH = 150;           // how deep the visible pit goes
