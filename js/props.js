@@ -236,19 +236,46 @@ function part(geo, mat, x, y, z) {
 // Each prop used to be a Group of many Mesh children (person=5, tree=4, car=8…).
 // 2000 props × ~6 meshes ≈ 12k draw calls — death on iPad. Merge same-material
 // parts into one BufferGeometry so most props become 1–3 draw calls.
+// ---- Vertex AO baking (darkens vertices near ground level) ------------------
+// Applied to merged geometries to add perceived depth without per-frame cost.
+function _bakeVertexAO(geometry, propHeight, worldBaseY) {
+  // Skip shared geometries (city-test uses shared geos; mutating them breaks other props)
+  if (geometry.userData && geometry.userData.shared) return;
+
+  const pos = geometry.attributes.position;
+  if (!pos) return;
+
+  const vc = new Uint8Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.array[i * 3 + 1]; // local Y coordinate
+    const worldY = worldBaseY + y;  // height in world space (for stacked slices)
+    // Darkness curve: 0 at top, ~0.25 at ground (y=0), interpolate in between
+    const groundDistance = Math.max(0, worldY) / Math.max(1, propHeight);
+    const darkness = Math.max(0, 0.25 * (1 - groundDistance));
+    const lightness = Math.max(0, 1 - darkness);
+    // Pack into 0–255 range (255 = white, 0 = black)
+    const val = Math.round(lightness * 255);
+    vc[i * 3] = val;
+    vc[i * 3 + 1] = val;
+    vc[i * 3 + 2] = val;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(vc, 3, true)); // normalized
+}
+
 function _mergeGeometries(geos) {
   if (!geos.length) return null;
   if (geos.length === 1) return geos[0];
 
   const prepared = [];
   let total = 0;
-  let hasNormal = true, hasUV = true;
+  let hasNormal = true, hasUV = true, hasColor = true;
   for (let i = 0; i < geos.length; i++) {
     let g = geos[i];
     if (!g || !g.attributes || !g.attributes.position) continue;
     if (g.index) g = g.toNonIndexed();
     if (!g.attributes.normal) hasNormal = false;
     if (!g.attributes.uv) hasUV = false;
+    if (!g.attributes.color) hasColor = false;
     prepared.push(g);
     total += g.attributes.position.count;
   }
@@ -258,6 +285,7 @@ function _mergeGeometries(geos) {
   const pos = new Float32Array(total * 3);
   const nrm = hasNormal ? new Float32Array(total * 3) : null;
   const uv = hasUV ? new Float32Array(total * 2) : null;
+  const col = hasColor ? new Uint8Array(total * 3) : null;
   let vo = 0;
   for (let i = 0; i < prepared.length; i++) {
     const g = prepared[i];
@@ -265,6 +293,12 @@ function _mergeGeometries(geos) {
     pos.set(g.attributes.position.array, vo * 3);
     if (nrm) nrm.set(g.attributes.normal.array, vo * 3);
     if (uv) uv.set(g.attributes.uv.array, vo * 2);
+    if (col && g.attributes.color) {
+      col.set(g.attributes.color.array, vo * 3);
+    } else if (col) {
+      // No color in this geo — fill with white (1.0 = 255)
+      for (let j = 0; j < c * 3; j++) col[vo * 3 + j] = 255;
+    }
     vo += c;
   }
   const out = new THREE.BufferGeometry();
@@ -272,10 +306,39 @@ function _mergeGeometries(geos) {
   if (nrm) out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
   else out.computeVertexNormals();
   if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (col) out.setAttribute('color', new THREE.BufferAttribute(col, 3, true)); // normalized
   return out;
 }
 
-function optimizeProp(root) {
+// ---- Blob shadow plane creation (flat decal under props) ---------------------
+function _createBlobShadow(propRadius, propHeight) {
+  if (!typeof createBlobShadowTexture === 'function') return null; // texture not available
+  const shadowTex = createBlobShadowTexture();
+  if (!shadowTex) return null;
+
+  // Shadow radius: slightly larger than footprint
+  const shadowRadius = propRadius * 1.3;
+  // Shadow plane at a fixed y (just above ground to avoid z-fighting)
+  const shadowY = 0.08;
+
+  // Create a flat plane for the shadow
+  const geo = new THREE.PlaneGeometry(shadowRadius * 2, shadowRadius * 2, 1, 1);
+  const mat = new THREE.MeshBasicMaterial({
+    map: shadowTex,
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2; // Lie flat on the ground
+  mesh.position.y = shadowY;
+  mesh.frustumCulled = true;
+  mesh.matrixAutoUpdate = false;
+  mesh.updateMatrix();
+  return mesh;
+}
+
+function optimizeProp(root, propName, propStats, baseY) {
   if (!root) return root;
   // Bake world matrices under a temp parent so local offsets are correct
   root.updateMatrixWorld(true);
@@ -327,7 +390,23 @@ function optimizeProp(root) {
       if (entry.geos[i] !== merged) entry.geos[i].dispose();
     }
     if (!merged) return;
-    const m = new THREE.Mesh(merged, entry.mat);
+
+    // Bake vertex AO (height-based darkening)
+    // For stacked buildings: use baseY so darkness curve spans the whole building
+    if (propStats && propStats.h) {
+      const worldBaseY = baseY || 0;
+      _bakeVertexAO(merged, propStats.h, worldBaseY);
+    }
+
+    // Create a new material with vertexColors enabled if needed
+    let mat = entry.mat;
+    if (merged.attributes.color && mat) {
+      // Clone the material and enable vertexColors
+      mat = mat.clone();
+      mat.vertexColors = true;
+    }
+
+    const m = new THREE.Mesh(merged, mat);
     m.castShadow = entry.cast;
     m.frustumCulled = true;
     m.matrixAutoUpdate = false;
@@ -342,6 +421,15 @@ function optimizeProp(root) {
     m.matrixAutoUpdate = false;
     m.updateMatrix();
     out.add(m);
+  }
+
+  // Add blob shadow plane (if prop has stats and shadows aren't disabled on lowEnd for clutter)
+  if (propStats && propStats.r && propStats.h) {
+    const shouldSkipShadow = GFX.lowEnd && CLUTTER_PROPS[propName];
+    if (!shouldSkipShadow) {
+      const shadow = _createBlobShadow(propStats.r, propStats.h);
+      if (shadow) out.add(shadow);
+    }
   }
 
   out.matrixAutoUpdate = false;
@@ -759,12 +847,13 @@ function addProp(name, x, z, rotY, opts) {
   if (GFX.lowEnd && CLUTTER_PROPS[name] && Math.random() > GFX.clutterKeep) return;
 
   let mesh = BUILDERS[name]();
+  const baseY = (opts && opts.y) || 0;
   const rot = rotY !== undefined ? rotY : rand(0, Math.PI * 2);
   // Never set up shadows on low-end
   if (!GFX.lowEnd && SAVE.shadows && SHADOW_CASTERS.has(name))
     mesh.traverse(m => { if (m.isMesh) m.castShadow = true; });
 
-  if (GFX.mergeProps) mesh = optimizeProp(mesh);
+  if (GFX.mergeProps) mesh = optimizeProp(mesh, name, STATS[name], baseY);
   else {
     mesh.traverse(m => {
       if (m.isMesh) {
@@ -784,8 +873,6 @@ function addProp(name, x, z, rotY, opts) {
     });
     mesh.matrixAutoUpdate = false;
   }
-
-  const baseY = (opts && opts.y) || 0;
   mesh.position.set(x, baseY, z);
   mesh.rotation.y = rot;
   mesh.updateMatrix();

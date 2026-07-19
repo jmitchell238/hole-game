@@ -100,6 +100,26 @@ function canvasTex(w, h, draw) {
   return t;
 }
 
+// ---- Blob shadow texture (baked radial gradient, shared across all props) ----
+let blobShadowTexture = null;
+function createBlobShadowTexture() {
+  if (blobShadowTexture) return blobShadowTexture;
+  const size = 256;
+  blobShadowTexture = canvasTex(size, size, (g) => {
+    // Clear to transparent
+    g.fillStyle = 'rgba(0,0,0,0)';
+    g.fillRect(0, 0, size, size);
+    // Radial gradient: dark in center, fades to transparent at edges
+    const grad = g.createRadialGradient(128, 128, 0, 128, 128, 120);
+    grad.addColorStop(0, 'rgba(0,0,0,0.35)');
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.15)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+  });
+  return blobShadowTexture;
+}
+
 // ---- Static ground (never rebuilt) ------------------------------------------
 let ground = null;
 let groundUnderlay = null;
