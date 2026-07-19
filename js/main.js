@@ -44,6 +44,22 @@ function init(level) {
   camera.lookAt(player.x, 0, player.z);
   if (typeof streamProps === 'function' && GFX.streamProps) streamProps(true);
 
+  // Initialize free camera if this is a freeCam level
+  if (currentLevel && currentLevel.freeCam && typeof initFreeCam === 'function') {
+    initFreeCam();
+    // Hide gameplay UI for freeCam levels
+    if (player && player.mesh) player.mesh.visible = false;
+    if (player && player.tag) player.tag.style.display = 'none';
+    if (document.getElementById('joystick')) document.getElementById('joystick').style.display = 'none';
+    if (document.getElementById('hud')) document.getElementById('hud').style.display = 'none';
+  } else {
+    // Restore UI for normal levels
+    if (player && player.mesh) player.mesh.visible = true;
+    if (player && player.tag) player.tag.style.display = 'block';
+    if (document.getElementById('joystick')) document.getElementById('joystick').style.display = 'block';
+    if (document.getElementById('hud')) document.getElementById('hud').style.display = 'block';
+  }
+
   // Timer: solo 300s, battle always 150s (fixed pacing, no level override)
   const isSolo = !battleMode;
   timeLeft = isSolo ? 300 : MATCH_TIME;
@@ -151,19 +167,33 @@ function autoDemoteToPerf() {
 }
 
 function render() {
-  // Camera: distance ∝ r so hole stays ~constant on-screen fraction (~30%).
-  // Look slightly past the hole so more ground fills the frame (less empty sky).
-  let height = 12 + player.r * 3.9 + player.r * player.r * 0.008;
-  let depth = 10 + player.r * 3.3 + player.r * player.r * 0.0065;
-  const want = new THREE.Vector3(player.x, height, player.z + depth);
-  camPos.lerp(want, GFX.lowEnd ? 0.12 : 0.08);
-  camera.position.copy(camPos);
-  // Aim a bit in front of the hole so the upper half of the frame is ground, not void
-  const lookAhead = player.r * 0.35;
-  camera.lookAt(player.x, 0, player.z - lookAhead * 0.15);
+  // FreeCam mode: skip normal player-follow camera
+  if (currentLevel && currentLevel.freeCam && typeof updateFreeCam === 'function') {
+    updateFreeCam();
+    // Still update sun for lighting, but relative to gallery center
+    let sunX = 0, sunZ = 0;
+    if (typeof window !== 'undefined' && window.freeCamController) {
+      sunX = window.freeCamController.target.x - 260;
+      sunZ = window.freeCamController.target.z + 180;
+    }
+    sun.position.set(sunX, 520, sunZ);
+    sun.target.position.set(sunX + 260, 0, sunZ - 180);
+  } else {
+    // Normal mode: camera follows hole
+    // Camera: distance ∝ r so hole stays ~constant on-screen fraction (~30%).
+    // Look slightly past the hole so more ground fills the frame (less empty sky).
+    let height = 12 + player.r * 3.9 + player.r * player.r * 0.008;
+    let depth = 10 + player.r * 3.3 + player.r * player.r * 0.0065;
+    const want = new THREE.Vector3(player.x, height, player.z + depth);
+    camPos.lerp(want, GFX.lowEnd ? 0.12 : 0.08);
+    camera.position.copy(camPos);
+    // Aim a bit in front of the hole so the upper half of the frame is ground, not void
+    const lookAhead = player.r * 0.35;
+    camera.lookAt(player.x, 0, player.z - lookAhead * 0.15);
 
-  sun.position.set(player.x - 260, 520, player.z + 180);
-  sun.target.position.set(player.x, 0, player.z);
+    sun.position.set(player.x - 260, 520, player.z + 180);
+    sun.target.position.set(player.x, 0, player.z);
+  }
 
   for (const h of holes) {
     if (h.deco)

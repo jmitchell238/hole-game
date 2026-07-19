@@ -205,12 +205,12 @@ registerProp('church', { r: 12, h: 34 }, function() {
 }, true);
 
 // Torch: post + emissive orange flame sphere
-registerProp('torch', { r: 1.5, h: 9 }, function() {
+registerProp('torch', { r: 1.2, h: 6 }, function() {
   const g = new THREE.Group();
   // Post
-  g.add(part(new THREE.CylinderGeometry(0.3, 0.3, 7, 6), TIMBER, 0, 3.5, 0));
+  g.add(part(new THREE.CylinderGeometry(0.3, 0.3, 4.5, 6), TIMBER, 0, 2.25, 0));
   // Flame (emissive)
-  g.add(part(new THREE.SphereGeometry(1.2, 6, 6), FLAME, 0, 7.5, 0));
+  g.add(part(new THREE.SphereGeometry(1.0, 6, 6), FLAME, 0, 5.0, 0));
   return g;
 }, false);
 

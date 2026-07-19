@@ -9,7 +9,7 @@ const STATS = {
   mailbox:     { r: 2.5, h: 7 },
   hydrant:     { r: 2.5, h: 6 },
   trashcan:    { r: 2.5, h: 7 },
-  cone:        { r: 3,   h: 9 },
+  cone:        { r: 1.7, h: 4 },
   streetlight: { r: 2,   h: 26 },
   bench:       { r: 6,   h: 5 },
   fence:       { r: 12,  h: 7 },
@@ -531,10 +531,10 @@ const BUILDERS = {
   cone() {
     const g = new THREE.Group();
     const seg = PROP_SEG();
-    g.add(part(new THREE.ConeGeometry(2.8, 8.5, seg + 2), MAT.cone, 0, 4.6, 0));
+    g.add(part(new THREE.ConeGeometry(1.4, 4.0, seg + 2), MAT.cone, 0, 2.1, 0));
     if (!GFX.mobile)
-      g.add(part(new THREE.CylinderGeometry(2.1, 2.3, 1.4, seg + 2), MAT.coneW, 0, 4.2, 0));
-    g.add(part(new THREE.BoxGeometry(6.4, 0.8, 6.4), MAT.cone, 0, 0.4, 0));
+      g.add(part(new THREE.CylinderGeometry(1.05, 1.15, 0.7, seg + 2), MAT.coneW, 0, 1.9, 0));
+    g.add(part(new THREE.BoxGeometry(3.2, 0.5, 3.2), MAT.cone, 0, 0.25, 0));
     return g;
   },
   streetlight() {

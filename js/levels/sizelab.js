@@ -4,6 +4,151 @@
 
 let WORLD, galleryData = [];
 
+// ---- Free Camera Controller (exposed as globals for main.js to call) ----
+let _freeCamInitialized = false;
+
+window.initFreeCam = function() {
+  if (_freeCamInitialized) return;
+  _freeCamInitialized = true;
+
+  // Compute gallery bounds
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  let maxY = 0;
+
+  for (const o of objects) {
+    if (o.mesh) {
+      const box = new THREE.Box3().setFromObject(o.mesh);
+      minX = Math.min(minX, box.min.x);
+      maxX = Math.max(maxX, box.max.x);
+      minZ = Math.min(minZ, box.min.z);
+      maxZ = Math.max(maxZ, box.max.z);
+      maxY = Math.max(maxY, box.max.y);
+    }
+  }
+
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  // Start with reasonable framing
+  window.freeCamController = {
+    target: new THREE.Vector3(centerX, Math.max(5, maxY * 0.5), centerZ),
+    yaw: 0,
+    pitch: 0.6,
+    distance: Math.max(300, Math.hypot(maxX - minX, maxZ - minZ) * 0.8)
+  };
+};
+
+window.updateFreeCam = function() {
+  if (!freeCamController) return;
+  const { target, yaw, pitch, distance } = freeCamController;
+  const x = target.x + Math.cos(yaw) * Math.cos(pitch) * distance;
+  const y = target.y + Math.sin(pitch) * distance;
+  const z = target.z + Math.sin(yaw) * Math.cos(pitch) * distance;
+  camera.position.set(x, y, z);
+  camera.lookAt(target);
+};
+
+// ---- Input handlers for freeCam (guard with currentLevel.freeCam) ----
+let _freeCamInputsAttached = false;
+
+function attachFreeCamInputs() {
+  if (_freeCamInputsAttached) return;
+  _freeCamInputsAttached = true;
+
+  const canvas = renderer.domElement;
+  const state = {
+    lastTouchX: 0, lastTouchY: 0,
+    touchCount: 0,
+    lastDistance: 0
+  };
+
+  // Touch events
+  canvas.addEventListener('touchstart', (e) => {
+    if (!(currentLevel && currentLevel.freeCam)) return;
+    state.touchCount = e.touches.length;
+    if (state.touchCount === 1) {
+      state.lastTouchX = e.touches[0].clientX;
+      state.lastTouchY = e.touches[0].clientY;
+    } else if (state.touchCount === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      state.lastDistance = Math.hypot(dx, dy);
+    }
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!(currentLevel && currentLevel.freeCam) || !window.freeCamController) return;
+    e.preventDefault();
+
+    if (state.touchCount === 1) {
+      const dx = e.touches[0].clientX - state.lastTouchX;
+      const dy = e.touches[0].clientY - state.lastTouchY;
+      window.freeCamController.yaw -= dx * 0.01;
+      window.freeCamController.pitch += dy * 0.01;
+      window.freeCamController.pitch = Math.max(0.1, Math.min(1.4, window.freeCamController.pitch));
+      state.lastTouchX = e.touches[0].clientX;
+      state.lastTouchY = e.touches[0].clientY;
+    } else if (state.touchCount === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = state.lastDistance / dist;
+      window.freeCamController.distance *= ratio;
+      window.freeCamController.distance = Math.max(60, Math.min(4000, window.freeCamController.distance));
+      state.lastDistance = dist;
+    }
+  });
+
+  // Mouse events
+  canvas.addEventListener('mousedown', (e) => {
+    if (!(currentLevel && currentLevel.freeCam)) return;
+    state.lastTouchX = e.clientX;
+    state.lastTouchY = e.clientY;
+  }, false);
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!(currentLevel && currentLevel.freeCam) || !window.freeCamController) return;
+    if (!(e.buttons & (1 | 2))) return; // left or right mouse button
+    if ((e.buttons & 1) && !(e.shiftKey)) { // left drag without shift = orbit
+      const dx = e.clientX - state.lastTouchX;
+      const dy = e.clientY - state.lastTouchY;
+      window.freeCamController.yaw -= dx * 0.01;
+      window.freeCamController.pitch += dy * 0.01;
+      window.freeCamController.pitch = Math.max(0.1, Math.min(1.4, window.freeCamController.pitch));
+    } else if ((e.buttons & 2) || ((e.buttons & 1) && e.shiftKey)) { // right drag or shift+left = pan
+      const dx = e.clientX - state.lastTouchX;
+      const dy = e.clientY - state.lastTouchY;
+      const cam = camera.position.clone().sub(window.freeCamController.target);
+      const right = new THREE.Vector3()
+        .crossVectors(camera.up, cam).normalize()
+        .multiplyScalar(-dx * 0.5);
+      const up = camera.up.clone().multiplyScalar(dy * 0.5);
+      window.freeCamController.target.add(right).add(up);
+    }
+    state.lastTouchX = e.clientX;
+    state.lastTouchY = e.clientY;
+  }, false);
+
+  canvas.addEventListener('wheel', (e) => {
+    if (!(currentLevel && currentLevel.freeCam) || !window.freeCamController) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 1.1 : 0.9;
+    window.freeCamController.distance *= delta;
+    window.freeCamController.distance = Math.max(60, Math.min(4000, window.freeCamController.distance));
+  }, { passive: false });
+
+  canvas.addEventListener('contextmenu', (e) => {
+    if (!(currentLevel && currentLevel.freeCam)) return;
+    e.preventDefault();
+  }, false);
+}
+
+// Call attachFreeCamInputs() on first game load
+if (typeof renderer !== 'undefined' && !_freeCamInputsAttached) {
+  attachFreeCamInputs();
+}
+
 function generate() {
   WORLD = 800; // generous size for the gallery
   this.world = WORLD;
@@ -106,13 +251,24 @@ function populate(addProp) {
 
     // Ground label: canvas texture plane lying flat in front of prop
     const labelTex = createLabelTexture(name, stats.r, stats.h, measuredH);
-    const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, side: THREE.DoubleSide });
-    const labelGeo = new THREE.PlaneGeometry(100, 50);
+    const spacing = Math.max(stats.r * 2, measuredH * 0.3) + 40;
+    const labelWidth = Math.min(90, spacing * 0.9);
+    const labelMat = new THREE.MeshBasicMaterial({
+      map: labelTex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    const labelGeo = new THREE.PlaneGeometry(labelWidth, 50);
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
     labelMesh.rotation.x = -Math.PI / 2; // lie flat on ground
     labelMesh.position.x = x;
-    labelMesh.position.y = 0.2; // just above ground
-    labelMesh.position.z = z + (Math.max(stats.r * 2, measuredH * 0.3) + 40) * 0.4;
+    labelMesh.position.y = 1.5; // raised above ground to avoid z-fighting
+    labelMesh.position.z = z + spacing * 0.4;
+    labelMesh.renderOrder = 10;
     scene.add(labelMesh);
 
     // Footprint ring
@@ -126,7 +282,7 @@ function populate(addProp) {
     const ringMesh = new THREE.Mesh(ringGeo, ringMat);
     ringMesh.rotation.x = -Math.PI / 2;
     ringMesh.position.x = x;
-    ringMesh.position.y = 0.1;
+    ringMesh.position.y = 0.6; // raised above ground
     ringMesh.position.z = z;
     scene.add(ringMesh);
   }
@@ -166,13 +322,22 @@ function populate(addProp) {
       g.textBaseline = 'middle';
       g.fillText(String(h), 32, 32);
     });
-    const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, side: THREE.DoubleSide });
+    const labelMat = new THREE.MeshBasicMaterial({
+      map: labelTex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
     const labelGeo = new THREE.PlaneGeometry(20, 20);
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
     labelMesh.rotation.x = -Math.PI / 2;
     labelMesh.position.x = rulerX + 30;
-    labelMesh.position.y = h + 0.5;
+    labelMesh.position.y = h + 1.5;
     labelMesh.position.z = rulerZ;
+    labelMesh.renderOrder = 10;
     scene.add(labelMesh);
   }
 }
@@ -188,6 +353,7 @@ registerLevel({
   skirtColor: 0x666666,
   progressLabel: 'Lab complete',
   noEat: true, // guard in rules.js: don't eat props
+  freeCam: true, // enable free camera for inspection
   generate,
   createGroundTexture: createSizelabGroundTexture,
   populate,
