@@ -42,8 +42,11 @@ function botThink(bot) {
 }
 
 function update(dt) {
-  timeLeft -= dt;
-  if (timeLeft <= 0) { timeLeft = 0; endMatch(); return; }
+  // In noEat levels (debug labs), timer doesn't count down or auto-end
+  if (!currentLevel.noEat) {
+    timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; endMatch(); return; }
+  }
 
   const kx = (keys['d']?1:0)-(keys['a']?1:0), kz = (keys['s']?1:0)-(keys['w']?1:0);
   if (kx || kz) { player.tx = player.x + kx*300; player.tz = player.z + kz*300; }
@@ -172,7 +175,7 @@ function update(dt) {
         isNear = Math.abs(ob.x - h.x) <= maxReach && Math.abs(ob.z - h.z) <= maxReach;
       }
 
-      if (isNear && canEat(h, ob.r) &&
+      if (!currentLevel.noEat && isNear && canEat(h, ob.r) &&
           dist(h.x, h.z, ob.x, ob.z) + ob.r <= h.r) {  // fully inside the mouth
         ob.falling = true; ob.hole = h; ob.vy = 0;
         gridRemove(ob);  // remove from grid when falling starts

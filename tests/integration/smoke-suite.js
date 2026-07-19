@@ -110,24 +110,28 @@
         return false;
       }
 
-      // ---- Eating test ----
-      const levelStartR = player.trueR;
-      const levelStartObjects = objects.length;
-      running = true;
-      timeLeft = 300;  // plenty of time for eating
-      last = performance.now();
+      // ---- Eating test (skip for noEat levels like Size Lab) ----
+      if (!currentLevel.noEat) {
+        const levelStartR = player.trueR;
+        const levelStartObjects = objects.length;
+        running = true;
+        timeLeft = 300;  // plenty of time for eating
+        last = performance.now();
 
-      const result = driveEating(player, 900);
+        const result = driveEating(player, 900);
 
-      log('SMOKE ' + levelId + ' eaten=' + result.eaten + ' grewTo=' + Math.round(result.grewTo));
+        log('SMOKE ' + levelId + ' eaten=' + result.eaten + ' grewTo=' + Math.round(result.grewTo));
 
-      if (result.eaten <= 0) {
-        log('SMOKE FAIL ' + levelId + ' ate_nothing');
-        fails++;
-      }
-      if (result.grewTo <= levelStartR) {
-        log('SMOKE FAIL ' + levelId + ' no_growth');
-        fails++;
+        if (result.eaten <= 0) {
+          log('SMOKE FAIL ' + levelId + ' ate_nothing');
+          fails++;
+        }
+        if (result.grewTo <= levelStartR) {
+          log('SMOKE FAIL ' + levelId + ' no_growth');
+          fails++;
+        }
+      } else {
+        log('SMOKE ' + levelId + ' eaten=0 grewTo=' + Math.round(player.trueR) + ' (noEat mode)');
       }
 
       running = false;
