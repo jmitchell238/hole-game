@@ -218,7 +218,8 @@ function moveHole(h, dt) {
     h.z += (h.tz - h.z) / d * step;
   }
   // When r is large, W-r can be small — never invert min/max (that crashed late game)
-  const lim = Math.max(4, W - h.r);
+  const EDGE_OVERHANG = 30; // let the rim slide slightly past the map edge so boundary/corner props are reachable
+  const lim = Math.max(4, W - Math.max(0, h.r - EDGE_OVERHANG));
   h.x = clamp(h.x, -lim, lim);
   h.z = clamp(h.z, -lim, lim);
   syncHole(h);
