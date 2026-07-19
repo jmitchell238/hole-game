@@ -6,6 +6,16 @@
 let WORLD;
 let islands = [];   // { x, z, R, a3, p3, a7, p7 }
 
+// Island palette: tropical colors, sand and ocean
+const ISLAND_PALETTE = {
+  primary:   0xf5deb3,    // sand/tan buildings
+  accent1:   0x2ecc71,    // tropical green (plants/roofs)
+  accent2:   0x3498db,    // bright turquoise (water/glass)
+  dark:      0x34495e,    // dark teal (shadows)
+  ground:    0xd4a574,    // sandy ground
+  sky:       0x87ceeb,    // sky blue
+};
+
 // Distance from island center to its shoreline in direction theta — a wobbly
 // circle, so every island is a different blob.
 function shoreR(isl, theta) {
@@ -516,6 +526,7 @@ function populate(addProp) {
 registerLevel({
   id: 'island',
   name: 'Island',
+  palette: ISLAND_PALETTE,
   sky: 0x8fd3f2,
   fog: [900, 3200],
   hemi: [0xe4f6ff, 0x3f8a8f, 1.0],

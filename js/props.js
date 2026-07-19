@@ -165,6 +165,66 @@ const APT_WALLS = ['#f0e8d8','#ece4d0','#e8dcc8'].map(c =>
   new THREE.MeshLambertMaterial({ map: aptWall(c) }));
 const APT_TOP = new THREE.MeshLambertMaterial({ color: 0x8f7864 });
 
+// ---- Palette-aware material caching (built ONCE per level, not per building) -----
+// Cache palette materials: built when level is active, reused across all buildings
+let paletteHouseWalls = HOUSE_WALLS;
+let paletteTowerWalls = TOWER_WALLS;
+let paletteShopWalls = SHOP_WALLS;
+let paletteAptWalls = APT_WALLS;
+let paletteRoof = null;
+
+// Build palette materials ONCE when level's applyEnvironment() is called.
+// This replaces the module-level HOUSE_WALLS/SHOP_WALLS/etc. with palette-aware versions.
+function rebuildPaletteCache() {
+  // Use cached version if no palette
+  if (!currentLevel || !currentLevel.palette) {
+    paletteHouseWalls = HOUSE_WALLS;
+    paletteTowerWalls = TOWER_WALLS;
+    paletteShopWalls = SHOP_WALLS;
+    paletteAptWalls = APT_WALLS;
+    paletteRoof = null;
+    return;
+  }
+
+  const p = currentLevel.palette;
+
+  // Build house walls ONCE: reuse across all houses
+  const houseColor = new THREE.Color(p.primary).getHexString();
+  paletteHouseWalls = [{
+    side: new THREE.MeshLambertMaterial({ map: houseWall('#' + houseColor, false) }),
+    front: new THREE.MeshLambertMaterial({ map: houseWall('#' + houseColor, true) }),
+    plain: new THREE.MeshLambertMaterial({ color: p.primary }),
+  }];
+
+  // Tower walls: reuse standard set (procedural variation handles theming)
+  paletteTowerWalls = TOWER_WALLS;
+
+  // Build shop walls ONCE: reuse across all shops
+  const shopColor = new THREE.Color(p.accent1).getHexString();
+  paletteShopWalls = [{
+    wall: new THREE.MeshLambertMaterial({ map: shopWall('#' + shopColor) }),
+    plain: new THREE.MeshLambertMaterial({ color: p.accent1 }),
+  }];
+
+  // Build apt walls ONCE: reuse across all apartments
+  const aptColor = new THREE.Color(p.primary).getHexString();
+  paletteAptWalls = [new THREE.MeshLambertMaterial({ map: aptWall('#' + aptColor) })];
+
+  // Build roof material ONCE: reuse across all roofs
+  paletteRoof = new THREE.MeshLambertMaterial({ color: p.accent1 });
+}
+
+// Get cached palette materials (called from builders; materials are already built)
+function getPaletteHouseWalls() { return paletteHouseWalls; }
+function getPaletteTowerWalls() { return paletteTowerWalls; }
+function getPaletteShopWalls() { return paletteShopWalls; }
+function getPaletteAptWalls() { return paletteAptWalls; }
+function getPaletteRoof() {
+  // Default roof if no palette: pick from standard colors
+  if (!paletteRoof) return new THREE.MeshLambertMaterial({ color: pick(ROOF_COLORS) });
+  return paletteRoof;
+}
+
 // ---- Prop mesh builders (origin at ground level) -------------------------------
 const PROP_SEG = () => (typeof GFX !== 'undefined' ? GFX.propSeg : 8);
 
@@ -539,7 +599,7 @@ const BUILDERS = {
     }
     // Fallback: original procedural shop
     const g = new THREE.Group();
-    const v = pick(SHOP_WALLS);
+    const v = pick(getPaletteShopWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(26, 20, 26),
       [v.wall, v.wall, v.plain, v.plain, v.wall, v.wall]);
     box.position.y = 10; g.add(box);
@@ -549,12 +609,11 @@ const BUILDERS = {
   },
   house() {
     const g = new THREE.Group();
-    const v = pick(HOUSE_WALLS);
+    const v = pick(getPaletteHouseWalls());
     // Mobile: single material body (1 draw call) instead of 6 face materials
     if (GFX.mobile) {
       g.add(part(new THREE.BoxGeometry(34, 28, 34), v.front, 0, 14, 0));
-      g.add(part(new THREE.BoxGeometry(38, 10, 38),
-        new THREE.MeshLambertMaterial({ color: pick(ROOF_COLORS) }), 0, 32, 0));
+      g.add(part(new THREE.BoxGeometry(38, 10, 38), getPaletteRoof(), 0, 32, 0));
       return g;
     }
     const box = new THREE.Mesh(new THREE.BoxGeometry(34, 28, 34),
@@ -566,8 +625,7 @@ const BUILDERS = {
 
     // Gable roof: triangular prism using CylinderGeometry with 3 sides
     // Radius 23 gives triangle base ~40 (roof overhang), scaled for height ~14
-    const roofColor = pick(ROOF_COLORS);
-    const roofMat = new THREE.MeshLambertMaterial({ color: roofColor });
+    const roofMat = getPaletteRoof();
     const creamMat = new THREE.MeshLambertMaterial({ color: 0xece4d0 });
     const roof = new THREE.Mesh(
       new THREE.CylinderGeometry(23, 23, 40, 3),
@@ -606,7 +664,7 @@ const BUILDERS = {
     }
     // Fallback: original procedural apartment
     const g = new THREE.Group();
-    const wall = pick(APT_WALLS);
+    const wall = pick(getPaletteAptWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(40, 60, 40),
       [wall, wall, APT_TOP, APT_TOP, wall, wall]);
     box.position.y = 30; g.add(box);
@@ -616,7 +674,7 @@ const BUILDERS = {
   },
   tower() {
     const g = new THREE.Group();
-    const wall = pick(TOWER_WALLS);
+    const wall = pick(getPaletteTowerWalls());
 
     // Bottom tier: 52 width, ~58 height
     const box1 = new THREE.Mesh(new THREE.BoxGeometry(52, 58, 52),
@@ -650,7 +708,7 @@ const BUILDERS = {
   },
   aptSlice() {
     const g = new THREE.Group();
-    const wall = pick(APT_WALLS);
+    const wall = pick(getPaletteAptWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(28, 13, 28),
       [wall, wall, APT_TOP, APT_TOP, wall, wall]);
     box.position.y = 6.5; g.add(box);
@@ -658,7 +716,7 @@ const BUILDERS = {
   },
   aptSliceRoof() {
     const g = new THREE.Group();
-    const wall = pick(APT_WALLS);
+    const wall = pick(getPaletteAptWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(28, 13, 28),
       [wall, wall, APT_TOP, APT_TOP, wall, wall]);
     box.position.y = 6.5; g.add(box);
@@ -670,7 +728,7 @@ const BUILDERS = {
   },
   towerSlice() {
     const g = new THREE.Group();
-    const wall = pick(TOWER_WALLS);
+    const wall = pick(getPaletteTowerWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(30, 16, 30),
       [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
     box.position.y = 8; g.add(box);
@@ -678,7 +736,7 @@ const BUILDERS = {
   },
   towerSliceRoof() {
     const g = new THREE.Group();
-    const wall = pick(TOWER_WALLS);
+    const wall = pick(getPaletteTowerWalls());
     const box = new THREE.Mesh(new THREE.BoxGeometry(30, 16, 30),
       [wall, wall, TOWER_TOP, TOWER_TOP, wall, wall]);
     box.position.y = 8; g.add(box);

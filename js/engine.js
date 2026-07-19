@@ -68,6 +68,13 @@ function applyEnvironment(level) {
   hemi.groundColor.set(level.hemi[1]);
   hemi.intensity = level.hemi[2] * (GFX.lowEnd ? 1.15 : 1);
   if (!GFX.lowEnd) sun.color.set(level.sunColor);
+
+  // Apply sky gradient class for CSS background gradient
+  frameEl.classList.remove('sky-city', 'sky-island', 'sky-winter', 'sky-desert', 'sky-medieval');
+  frameEl.classList.add('sky-' + level.id);
+
+  // Rebuild palette material cache for this level (called ONCE per level, not per building)
+  if (typeof rebuildPaletteCache === 'function') rebuildPaletteCache();
 }
 
 function canvasTex(w, h, draw) {

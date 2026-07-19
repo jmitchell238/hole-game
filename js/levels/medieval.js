@@ -8,6 +8,16 @@ let villages = [];             // { x, z, wells: number }
 let farms = [];                // { x, z, angle }
 let forestPatches = [];        // { x, z, R }
 
+// Medieval palette: stone and timber, castle feel
+const MEDIEVAL_PALETTE = {
+  primary:   0xb8a882,    // stone buildings
+  accent1:   0x8b6f47,    // timber brown
+  accent2:   0x5a4a3a,    // dark brown wood
+  dark:      0x3a3a3a,    // dark gray shadows
+  ground:    0x7a8a8a,    // cool gray ground
+  sky:       0x8a9aaa,    // overcast gray-blue
+};
+
 // ---- Medieval-specific props -------------------------------------------------------
 const WHITEWASH = new THREE.MeshLambertMaterial({ color: 0xf2f0e8 });
 const TIMBER = new THREE.MeshLambertMaterial({ color: 0x8a6642 });
@@ -697,6 +707,7 @@ function populate(addProp) {
 registerLevel({
   id: 'medieval',
   name: 'Medieval',
+  palette: MEDIEVAL_PALETTE,
   sky: 0xbfd8e8,
   fog: [750, 2400],
   hemi: [0xdcecf5, 0x5f7a4a, 0.95],

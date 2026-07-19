@@ -9,6 +9,16 @@ let railroadAngle;          // railroad direction (independent random)
 let railroadX, railroadZ;   // railroad offset
 let ranches = [];           // { x, z, ranchAngle }
 
+// Desert palette: warm sand and terracotta, western feel
+const DESERT_PALETTE = {
+  primary:   0xe8c98a,    // sand-colored buildings
+  accent1:   0xd97637,    // terracotta roofs
+  accent2:   0xc9a05a,    // darker sand accents
+  dark:      0x4a3820,    // dark brown shadows
+  ground:    0xdeb887,    // sandy ground
+  sky:       0xffeaa7,    // warm sky
+};
+
 // Exclusion zone helpers
 function onStreet(x, z) {
   const streetWidth = 80;
@@ -910,6 +920,7 @@ function populate(addProp) {
 registerLevel({
   id: 'desert',
   name: 'Wild West',
+  palette: DESERT_PALETTE,
   sky: 0xf7d9a8,
   fog: [800, 2600],
   hemi: [0xffe9c9, 0xa8845d, 0.95],

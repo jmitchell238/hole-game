@@ -7,6 +7,16 @@ let GRID_N, BLOCK, ROAD, P, WORLD;
 let blockPlan = [];
 let spawnI, spawnJ;             // which block the player spawns in (a park)
 
+// Winter palette: cool blues and whites, snowy feel
+const WINTER_PALETTE = {
+  primary:   0xf0f4f8,    // snow white buildings
+  accent1:   0x5a9fd4,    // icy blue roofs
+  accent2:   0x8ab4d5,    // light blue glass/accents
+  dark:      0x2c3e50,    // dark blue shadows
+  ground:    0xe8f1f5,    // snowy white ground
+  sky:       0xb0e0e6,    // powder blue sky
+};
+
 const blockOrigin = (i, j) => [ -WORLD + ROAD + i*P, -WORLD + ROAD + j*P ];
 
 // District plan: one downtown cluster (two on big maps) seeded at random,
@@ -513,6 +523,7 @@ function populate(addProp) {
 registerLevel({
   id: 'winter',
   name: 'Winter City',
+  palette: WINTER_PALETTE,
   sky: 0xcfe6f4,
   fog: [650, 1900],
   hemi: [0xeaf4ff, 0x9fb4c4, 0.95],

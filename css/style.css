@@ -164,6 +164,13 @@ canvas.dragging { cursor: grabbing; }
   100% { transform: translate(-50%, -96px) scale(1); opacity: 0; }
 }
 
+/* Level sky gradients */
+#frame.sky-city { background: linear-gradient(to bottom, #cfe8ff 0%, #f5e9d8 100%); }
+#frame.sky-island { background: linear-gradient(to bottom, #87ceeb 0%, #f5deb3 100%); }
+#frame.sky-winter { background: linear-gradient(to bottom, #b0e0e6 0%, #f0f4f8 100%); }
+#frame.sky-desert { background: linear-gradient(to bottom, #ffeaa7 0%, #ffe8b6 100%); }
+#frame.sky-medieval { background: linear-gradient(to bottom, #8a9aaa 0%, #bfd8e8 100%); }
+
 /* Narrow (portrait) frames: compact leaderboard and headline. */
 @media (max-aspect-ratio: 1/1) {
   #board { width: 138px; font-size: 11px; padding: 8px 9px; }

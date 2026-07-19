@@ -34,6 +34,16 @@ let spawnI, spawnJ;             // which block the player spawns in (a park)
 let skyrisesPlaced = 0;         // track skyrise count for smoke test
 let tallestProp = 0;            // track tallest prop for smoke test
 
+// City palette: warm pastels, urban feel
+const CITY_PALETTE = {
+  primary:   0xf0e8d8,    // cream building walls
+  accent1:   0xe85555,    // red/orange roofs
+  accent2:   0x4f8ae8,    // blue windows/glass
+  dark:      0x3a4048,    // dark shadows/metal
+  ground:    0x9aa2a8,    // gray pavement
+  sky:       0xcfe8ff,    // light blue sky
+};
+
 const blockOrigin = (i, j) => [ -WORLD + ROAD + i*P, -WORLD + ROAD + j*P ];
 
 // Register skyrise props (tall buildings for city-center core district)
@@ -533,6 +543,7 @@ function populate(addProp) {
 registerLevel({
   id: 'city',
   name: 'City',
+  palette: CITY_PALETTE,
   sky: 0xa8d8f0,
   fog: [650, 1900],
   hemi: [0xcfe8ff, 0x7a9a6a, 0.85],
