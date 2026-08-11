@@ -147,31 +147,43 @@ function buildSkin(url, cx, cy, rf, processImage) {
 }
 
 const HOLE_DESIGNS = [
-  // Image-based skins: measured circle params (cx, cy, rf) from PNG
+  // Image-based skins: measured circle params (cx, cy, rf) from PNG.
+  // cx/cy/rf are also used by the Store live preview so kids see the real look.
   { id: 'blackcat', name: 'Black Cat', img: 'art/Black_Cat_Transparent.png', cost: 200,
+    cx: 0.497608, cy: 0.692185, rf: 0.274322,
     build: () => buildSkin('art/Black_Cat_Transparent.png', 0.497608, 0.692185, 0.274322, false) },
   { id: 'tuxedocat', name: 'Tuxedo Cat', img: 'art/fixed/black_white_cat.png', cost: 200,
+    cx: 0.498804, cy: 0.624801, rf: 0.257576,
     build: () => buildSkin('art/fixed/black_white_cat.png', 0.498804, 0.624801, 0.257576, false) },
-  // New image-based skins from art/fixed/
   { id: 'fireskin', name: 'Ring of Fire', img: 'art/fixed/fire.png', cost: 150,
+    cx: 0.500399, cy: 0.511962, rf: 0.202352,
     build: () => buildSkin('art/fixed/fire.png', 0.500399, 0.511962, 0.202352, false) },
   { id: 'iceskin', name: 'Frost Ring', img: 'art/fixed/ice.png', cost: 150,
+    cx: 0.502392, cy: 0.506778, rf: 0.228270,
     build: () => buildSkin('art/fixed/ice.png', 0.502392, 0.506778, 0.228270, false) },
   { id: 'lavaskin', name: 'Molten Core', img: 'art/fixed/lava.png', cost: 150,
+    cx: 0.501595, cy: 0.506380, rf: 0.228070,
     build: () => buildSkin('art/fixed/lava.png', 0.501595, 0.506380, 0.228070, false) },
   { id: 'boltskin', name: 'Thunderbolt', img: 'art/fixed/lightening.png', cost: 150,
+    cx: 0.500000, cy: 0.499203, rf: 0.244418,
     build: () => buildSkin('art/fixed/lightening.png', 0.500000, 0.499203, 0.244418, false) },
   { id: 'twisterskin', name: 'Twister', img: 'art/fixed/tornado.png', cost: 150,
+    cx: 0.500000, cy: 0.512759, rf: 0.200957,
     build: () => buildSkin('art/fixed/tornado.png', 0.500000, 0.512759, 0.200957, false) },
   { id: 'voidskin', name: 'Black Hole', img: 'art/fixed/black_hole.png', cost: 250,
+    cx: 0.500000, cy: 0.512360, rf: 0.200758,
     build: () => buildSkin('art/fixed/black_hole.png', 0.500000, 0.512360, 0.200758, false) },
   { id: 'dinoskin', name: 'Dino', img: 'art/fixed/dinosaure_green.png', cost: 200,
+    cx: 0.495614, cy: 0.574561, rf: 0.244019,
     build: () => buildSkin('art/fixed/dinosaure_green.png', 0.495614, 0.574561, 0.244019, false) },
   { id: 'pupskin', name: 'Puppy', img: 'art/fixed/dog_one.png', cost: 200,
+    cx: 0.497608, cy: 0.598086, rf: 0.223684,
     build: () => buildSkin('art/fixed/dog_one.png', 0.497608, 0.598086, 0.223684, false) },
   { id: 'heelerskin', name: 'Blue Heeler', img: 'art/fixed/dog_blue_heeler_real.png', cost: 200,
+    cx: 0.493222, cy: 0.625997, rf: 0.222289,
     build: () => buildSkin('art/fixed/dog_blue_heeler_real.png', 0.493222, 0.625997, 0.222289, false) },
   { id: 'whaleskin', name: 'Whale', img: 'art/fixed/whale_blue.png', cost: 200,
+    cx: 0.495614, cy: 0.577352, rf: 0.239434,
     build: () => buildSkin('art/fixed/whale_blue.png', 0.495614, 0.577352, 0.239434, false) },
 ];
 
@@ -180,4 +192,144 @@ function equippedColor() {
 }
 function equippedDesign() {
   return HOLE_DESIGNS.find(d => d.id === SAVE.design) || null;
+}
+
+// ---- Store live preview (2D canvas of equipped color + design) ----------------
+// Cache decoded design images so re-equipping is instant for kids tapping around.
+const _previewImgCache = Object.create(null);
+function loadPreviewImage(url, onReady) {
+  if (!url) return null;
+  const hit = _previewImgCache[url];
+  if (hit) {
+    if (hit.complete && hit.naturalWidth) onReady(hit);
+    else hit.addEventListener('load', () => onReady(hit), { once: true });
+    return hit;
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  _previewImgCache[url] = img;
+  img.onload = () => onReady(img);
+  img.src = url;
+  return img;
+}
+
+/** Darken/lighten a #rrggbb hex (same idea as hole.js shadeHex). */
+function previewShadeHex(hex, f) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  if (!Number.isFinite(n)) return hex;
+  const r = Math.min(255, ((n >> 16 & 255) * f) | 0);
+  const g = Math.min(255, ((n >> 8 & 255) * f) | 0);
+  const b = Math.min(255, ((n & 255) * f) | 0);
+  return `rgb(${r},${g},${b})`;
+}
+
+/**
+ * Draw a top-down hole preview into the Store canvas.
+ * Matches in-game: color ring + tinted pit; design image aligned via cx/cy/rf.
+ * @param {HTMLCanvasElement} canvas
+ * @param {{ hex: string, name?: string }|null} color
+ * @param {{ img?: string, cx?: number, cy?: number, rf?: number, name?: string }|null} design
+ * @param {() => void} [onAsyncRedraw] called when a design image finishes loading
+ */
+function drawHolePreview(canvas, color, design, onAsyncRedraw) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const cx = W * 0.5;
+  const cy = H * 0.52; // slightly low so tall character skins (cats, dino) fit
+  const holeR = Math.min(W, H) * 0.22;
+  const hex = (color && color.hex) || '#58d68d';
+
+  // Soft ground pad
+  ctx.clearRect(0, 0, W, H);
+  const ground = ctx.createRadialGradient(cx, cy, holeR * 0.4, cx, cy, Math.max(W, H) * 0.65);
+  ground.addColorStop(0, '#3d4a3a');
+  ground.addColorStop(0.55, '#2a332c');
+  ground.addColorStop(1, '#1a2330');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grass flecks so empty preview doesn't look flat
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#6fbf45';
+  for (let i = 0; i < 40; i++) {
+    const a = (i * 2.4) % (Math.PI * 2);
+    const d = holeR * 1.5 + (i % 7) * (holeR * 0.22);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1.6 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Color glow under the rim
+  ctx.save();
+  ctx.shadowColor = hex;
+  ctx.shadowBlur = holeR * 0.95;
+  ctx.beginPath();
+  ctx.arc(cx, cy, holeR * 1.05, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.01)';
+  ctx.fill();
+  ctx.restore();
+
+  // Color ring first (base look; design layers on top like in-game)
+  {
+    const ringOuter = holeR * 1.12;
+    const ringInner = holeR * 0.88;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringOuter, 0, Math.PI * 2);
+    ctx.arc(cx, cy, ringInner, 0, Math.PI * 2, true);
+    ctx.fillStyle = hex;
+    ctx.fill();
+    // Soft outer highlight
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringOuter, 0, Math.PI * 2);
+    ctx.arc(cx, cy, ringOuter - 2, 0, Math.PI * 2, true);
+    ctx.fillStyle = previewShadeHex(hex, 1.2);
+    ctx.globalAlpha = 0.5;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Design skin: align PNG hole cutout to the preview pit (same cx/cy/rf as 3D)
+  if (design && design.img) {
+    const rf = design.rf || 0.25;
+    const dcx = design.cx != null ? design.cx : 0.5;
+    const dcy = design.cy != null ? design.cy : 0.5;
+    // In-game planeScale = 0.96/rf for unit hole radius; circle world radius ≈ 0.96
+    const drawSize = (0.96 / rf) * holeR;
+    const drawX = cx - dcx * drawSize;
+    const drawY = cy - dcy * drawSize;
+    const img = loadPreviewImage(design.img, () => {
+      if (onAsyncRedraw) onAsyncRedraw();
+    });
+    if (img && img.complete && img.naturalWidth) {
+      try { ctx.drawImage(img, drawX, drawY, drawSize, drawSize); } catch (_) { /* ignore */ }
+    }
+  }
+
+  // Pit: tinted soil at the rim → black void (matches customPitMaterial feel)
+  const pit = ctx.createRadialGradient(cx, cy - holeR * 0.15, holeR * 0.08, cx, cy, holeR);
+  pit.addColorStop(0, '#050505');
+  pit.addColorStop(0.55, '#000000');
+  pit.addColorStop(0.82, previewShadeHex(hex, 0.35));
+  pit.addColorStop(1, previewShadeHex(hex, 0.9));
+  ctx.beginPath();
+  ctx.arc(cx, cy, holeR * 0.98, 0, Math.PI * 2);
+  ctx.fillStyle = pit;
+  ctx.fill();
+
+  // Inner rim highlight so the mouth reads as a hole, not a sticker
+  ctx.beginPath();
+  ctx.arc(cx, cy, holeR * 0.98, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = Math.max(2, holeR * 0.06);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, holeR * 0.92, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 }

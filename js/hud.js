@@ -141,6 +141,68 @@ function updateGold() {
 }
 
 // ---- Store ------------------------------------------------------------------------
+// Live try-on state: when a kid taps a card they can't buy yet (or hovers on
+// desktop), show what that combo would look like without equipping. Cleared
+// when the Store re-renders after a real equip.
+let _previewTryColor = null;   // color id or null → use SAVE.color
+let _previewTryDesign = null;  // design id, '' = plain, null = use SAVE.design
+let _previewTryTimer = 0;
+
+function previewColor() {
+  if (_previewTryColor) {
+    return HOLE_COLORS.find(c => c.id === _previewTryColor) || equippedColor();
+  }
+  return equippedColor();
+}
+function previewDesign() {
+  if (_previewTryDesign === '') return null; // explicit plain try-on
+  if (_previewTryDesign) {
+    return HOLE_DESIGNS.find(d => d.id === _previewTryDesign) || null;
+  }
+  return equippedDesign();
+}
+
+function updateHolePreview() {
+  const canvas = document.getElementById('holePreviewCanvas');
+  const label = document.getElementById('holePreviewLabel');
+  if (!canvas) return;
+  const col = previewColor();
+  const design = previewDesign();
+  const tryingOn = _previewTryColor != null || _previewTryDesign != null;
+  drawHolePreview(canvas, col, design, () => {
+    // Design image finished loading — redraw with the same try-on state
+    drawHolePreview(canvas, previewColor(), previewDesign());
+  });
+  if (label) {
+    const colorName = col.name || 'Hole';
+    const designName = design ? design.name : 'Plain';
+    label.textContent = tryingOn
+      ? `Try on · ${colorName} + ${designName}`
+      : `Your hole · ${colorName} + ${designName}`;
+  }
+}
+
+function setTryOnPreview(colorId, designId) {
+  _previewTryColor = colorId;
+  _previewTryDesign = designId;
+  if (_previewTryTimer) clearTimeout(_previewTryTimer);
+  // Auto-clear try-on after a few seconds so the equipped look returns
+  _previewTryTimer = setTimeout(() => {
+    _previewTryColor = null;
+    _previewTryDesign = null;
+    _previewTryTimer = 0;
+    updateHolePreview();
+  }, 3500);
+  updateHolePreview();
+}
+
+function clearTryOnPreview() {
+  if (_previewTryTimer) clearTimeout(_previewTryTimer);
+  _previewTryTimer = 0;
+  _previewTryColor = null;
+  _previewTryDesign = null;
+}
+
 function cosmeticCard(item, kind) {
   const owned = item.cost === 0 || ownsCosmetic(item.id);
   const equipped = kind === 'color' ? SAVE.color === item.id : SAVE.design === item.id;
@@ -158,14 +220,34 @@ function cosmeticCard(item, kind) {
     : `<span class="price">${item.cost} 🪙</span>`;
   card.innerHTML = `${face}<div>${item.name}</div><div class="state">${state}</div>`;
   if (!owned && SAVE.gold < item.cost) card.classList.add('locked');
+
+  // Instant live preview while browsing (before equip / even if locked).
+  // Color try-on keeps the current design; design try-on keeps the current color.
+  const tryThis = () => {
+    if (kind === 'color') {
+      setTryOnPreview(item.id, _previewTryDesign);
+    } else {
+      setTryOnPreview(_previewTryColor, item.id);
+    }
+  };
+  // pointerdown fires before click — kids see the look immediately on touch
+  card.addEventListener('pointerdown', tryThis);
+  // Desktop hover also previews without equipping
+  card.addEventListener('mouseenter', tryThis);
+
   card.onclick = () => {
     if (!owned) {
-      if (SAVE.gold < item.cost) return;
+      if (SAVE.gold < item.cost) {
+        // Can't buy — leave the try-on preview so she can still see it
+        tryThis();
+        return;
+      }
       SAVE.gold -= item.cost;
       SAVE.owned.push(item.id);
     }
     if (kind === 'color') SAVE.color = item.id;
     else SAVE.design = SAVE.design === item.id ? null : item.id;  // tap again to unequip
+    clearTryOnPreview();
     persistSave(); updateGold(); renderStore();
   };
   return card;
@@ -183,6 +265,7 @@ function renderStore() {
   const designs = document.getElementById('designGrid');
   designs.innerHTML = '';
   for (const d of HOLE_DESIGNS) designs.appendChild(cosmeticCard(d, 'design'));
+  updateHolePreview();
 }
 
 document.getElementById('checkinBtn').onclick = () => {

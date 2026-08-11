@@ -85,6 +85,32 @@ canvas.dragging { cursor: grabbing; }
 #tabbar button.active { color: #58d68d; }
 #tabbar img { height: 24px; }
 .gold { display: inline-block; background: rgba(10,14,22,.75); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 6px 20px; color: #ffcf40; font-weight: 800; font-size: 18px; margin: 2px 0 10px; }
+/* Live hole cosmetics preview (color + design) in the Store.
+   Sticky so it stays on screen while scrolling colors/designs. */
+.hole-preview {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin: 4px 0 12px; width: min(300px, 92%);
+  padding: 8px 10px 10px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(8,12,20,.92), rgba(8,12,20,.78));
+  border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.hole-preview canvas {
+  width: min(200px, 58vw); height: min(200px, 58vw);
+  border-radius: 18px;
+  background: #1a2330;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 8px 28px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+  cursor: default;
+}
+.hole-preview-label {
+  font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  opacity: .9; text-shadow: 0 1px 3px rgba(0,0,0,.7);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .storeHead { margin: 16px 0 8px; font-size: 13px; letter-spacing: 1px;
   text-transform: uppercase; opacity: .7; }
 .grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
