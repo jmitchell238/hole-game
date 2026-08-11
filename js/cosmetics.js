@@ -310,26 +310,60 @@ function drawHolePreview(canvas, color, design, onAsyncRedraw) {
     }
   }
 
-  // Pit: tinted soil at the rim → black void (matches customPitMaterial feel)
-  const pit = ctx.createRadialGradient(cx, cy - holeR * 0.15, holeR * 0.08, cx, cy, holeR);
-  pit.addColorStop(0, '#050505');
-  pit.addColorStop(0.55, '#000000');
-  pit.addColorStop(0.82, previewShadeHex(hex, 0.35));
-  pit.addColorStop(1, previewShadeHex(hex, 0.9));
+  // Pit interior (drawn on top of design cutout): colored walls → black abyss.
+  // Mirrors customPitMaterial: rim soil is nearly full color, then darkens to black.
+  // Wide color band so kids clearly see Lava vs Ocean vs Gold when picking.
+  const mouthR = holeR * 0.98;
+  const pit = ctx.createRadialGradient(cx, cy, 0, cx, cy, mouthR);
+  pit.addColorStop(0.00, '#000000');
+  pit.addColorStop(0.22, '#000000');
+  pit.addColorStop(0.42, previewShadeHex(hex, 0.18));
+  pit.addColorStop(0.62, previewShadeHex(hex, 0.45));
+  pit.addColorStop(0.82, previewShadeHex(hex, 0.78));
+  pit.addColorStop(0.94, previewShadeHex(hex, 0.98));
+  pit.addColorStop(1.00, hex);
   ctx.beginPath();
-  ctx.arc(cx, cy, holeR * 0.98, 0, Math.PI * 2);
+  ctx.arc(cx, cy, mouthR, 0, Math.PI * 2);
   ctx.fillStyle = pit;
   ctx.fill();
 
-  // Inner rim highlight so the mouth reads as a hole, not a sticker
+  // Saturated color lip just inside the rim (reads like the 3D wall top)
   ctx.beginPath();
-  ctx.arc(cx, cy, holeR * 0.98, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-  ctx.lineWidth = Math.max(2, holeR * 0.06);
+  ctx.arc(cx, cy, mouthR, 0, Math.PI * 2);
+  ctx.arc(cx, cy, mouthR * 0.78, 0, Math.PI * 2, true);
+  const lip = ctx.createRadialGradient(cx, cy, mouthR * 0.78, cx, cy, mouthR);
+  lip.addColorStop(0, previewShadeHex(hex, 0.55));
+  lip.addColorStop(0.55, previewShadeHex(hex, 0.9));
+  lip.addColorStop(1, hex);
+  ctx.fillStyle = lip;
+  ctx.fill();
+
+  // Soft inner shadow so the center still feels deep
+  const depth = ctx.createRadialGradient(cx, cy, 0, cx, cy, mouthR * 0.72);
+  depth.addColorStop(0, 'rgba(0,0,0,0.92)');
+  depth.addColorStop(0.55, 'rgba(0,0,0,0.55)');
+  depth.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, mouthR * 0.72, 0, Math.PI * 2);
+  ctx.fillStyle = depth;
+  ctx.fill();
+
+  // Inner rim outline
+  ctx.beginPath();
+  ctx.arc(cx, cy, mouthR, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = Math.max(2, holeR * 0.05);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(cx, cy, holeR * 0.92, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.arc(cx, cy, mouthR * 0.78, 0, Math.PI * 2);
+  ctx.strokeStyle = hex;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = Math.max(1.5, holeR * 0.04);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, mouthR * 0.76, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 }
