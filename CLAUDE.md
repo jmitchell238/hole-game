@@ -2,8 +2,8 @@
 
 A hole.io-style 3D browser game. Three.js via classic `<script>` tags sharing
 global scope (no modules, no build step). Live at
-https://jmitchell238.github.io/hole-game/ — see `README.md` for the file map
-and the add-a-level guide.
+https://jmitchell238.github.io/hole-game/ — see `docs/ARCHITECTURE.md` for the file
+map and `docs/DEVELOPMENT.md` for the add-a-level guide.
 
 ## Orchestrator workflow (REQUIRED)
 
