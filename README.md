@@ -1,67 +1,63 @@
 # VoidRush
 
-A hole.io-style browser game — steer your hole around the map and swallow
-everything that fits, growing as you go. Biggest hole when the timer hits
-0:00 wins. Every match rolls a brand-new procedurally generated map. Matches
-earn gold to spend in the Store on hole colors and designs (cat, dog, dragon,
-tornado). No build step; just open `index.html` in a browser or visit the
-hosted site.
+A hole.io-style 3D browser game. Steer a hole around the map, swallow anything small enough to fit, and grow. Whoever is biggest when the timer hits 0:00 wins.
 
-**Play online:** https://jmitchell238.github.io/hole-game/
+Play at https://jmitchell238.github.io/hole-game/
 
 ## Features
 
-- **Two levels** (more coming): a procedurally generated **City** and an
-  **Island** archipelago with villages, palms, and boats — pick on the Play tab
-- **Random maps every match** — grid size, districts, islands, and spawns
-  are all rolled fresh
-- **Store + gold economy** — earn gold from matches (size + podium bonus),
-  claim a daily check-in for +10 gold, buy hole colors (20 🪙) and rim
-  designs (100–250 🪙)
-- **Touch + mouse controls** — drag to steer; works on touchscreens and iPad
-- **16:9 letterboxed frame** that flips to 9:16 when the device is held upright
-- **Installable PWA** — "Add to Home Screen" on iPad gives a fullscreen app
-  that works offline; a Full screen button lives in Settings
-- **Old 2D prototype** preserved at `classic2d.html`
+- Five themed levels: City, Island, Winter City, Wild West and Medieval. Each match picks one at random and generates a new map for it.
+- Gold from each match (based on size, plus a podium bonus) and a daily check-in worth 10 gold.
+- A Store with hole colors (20 gold each) and image rim designs like Black Cat, Puppy, Twister and Black Hole (150–250 gold).
+- Drag to steer, with mouse or touch.
+- 16:9 frame that switches to 9:16 when the device is held upright.
+- Installable PWA that works offline. There's a full-screen button in Settings.
+- The original 2D prototype is still at `classic2d.html`.
+
+Turning on debug mode in Settings adds a level picker to the Play tab.
 
 ## Project layout
 
-| File | What it owns |
+| File | Contents |
 |---|---|
-| `index.html` | Page markup, tab bar, script tags |
-| `css/style.css` | All styling |
-| `js/core.js` | Pure game math: level tiers, growth, rewards, seeded RNG (Node-exportable) |
-| `js/config.js` | Game constants, helpers, the level registry, shared state |
-| `js/models.js` | Game entity models: holes, props, objects |
-| `js/spatial.js` | Spatial data structures for collision and search queries |
-| `js/engine.js` | Renderer, scene, camera, lights, 16:9 frame, ground |
-| `js/props.js` | Prop library: stats, materials, mesh builders, `registerProp()` |
-| `js/save.js` | Persistent progress: gold, purchases, settings (localStorage) |
-| `js/cosmetics.js` | Store catalog: hole colors + 3D rim designs |
-| `js/hole.js` | The holes: pit visuals, cosmetics, movement, grow/eat math |
-| `js/rules.js` | Match rules: swallowing physics, hole collisions, bot AI |
-| `js/input.js` | Pointer (mouse/touch) input, keyboard, resize |
-| `js/hud.js` | HUD, leaderboard, Store/Play/Settings tabs, level select |
-| `js/main.js` | Game loop, initialization, match flow |
-| `js/levels/city.js` | Procedurally generated urban level |
-| `js/levels/city-test.js` | Small test level for debugging |
-| `js/levels/island.js` | Archipelago level with organic island layout |
-| `js/levels/winter.js` | Snowy level with seasonal props |
-| `js/levels/desert.js` | Desert level with dunes and cacti |
-| `js/levels/medieval.js` | Medieval town level |
-| `sw.js` + `manifest.webmanifest` | PWA install + offline cache |
+| `index.html` | Markup, tab bar, script tags |
+| `css/style.css` | Styles |
+| `js/core.js` | Pure game math: level tiers, growth, rewards, seeded RNG (also loaded by the Node tests) |
+| `js/config.js` | Constants, helpers, level registry, shared state, `GAME_VERSION` |
+| `js/models.js` | Holes, props and other entities |
+| `js/spatial.js` | Spatial index for collision and search queries |
+| `js/engine.js` | Renderer, scene, camera, lights, frame, ground |
+| `js/props.js` | Prop library and `registerProp()` |
+| `js/save.js` | Gold, purchases and settings in localStorage |
+| `js/cosmetics.js` | Store catalog |
+| `js/hole.js` | Hole visuals, cosmetics, movement, growth |
+| `js/rules.js` | Swallowing physics, hole collisions, bot AI |
+| `js/input.js` | Mouse, touch, keyboard, resize |
+| `js/hud.js` | HUD, leaderboard, Store/Play/Settings tabs, level picker |
+| `js/main.js` | Game loop, setup, match flow |
+| `js/levels/*.js` | One file per level, plus `city-test.js` and `sizelab.js` for debugging |
+| `sw.js`, `manifest.webmanifest` | PWA install and offline cache |
 
-## Adding a new level (desert, medieval, winter, …)
+There's no build step. Scripts are plain `<script>` tags that share global scope, so `index.html` also runs straight from disk.
 
-1. Copy `js/levels/city.js` (grid city) or `js/levels/island.js` (organic
-   blobs) to `js/levels/<name>.js` — whichever is closer to your theme.
-2. Change the `generate()` roll, ground texture, colors, and props it
-   registers — the full checklist is commented at the top of `city.js`.
-3. Add a `<script>` tag for it in `index.html` and list it in `sw.js`.
+## Adding a level
 
-The level-select buttons pick up new levels automatically.
+1. Copy `js/levels/city.js` (grid layout) or `js/levels/island.js` (organic islands) to `js/levels/<name>.js`.
+2. Change the generator, ground texture, colors and props. The checklist is in the comment at the top of `city.js`.
+3. Add a `<script>` tag for it in `index.html` and add it to `ASSETS` in `sw.js`.
 
-## Releasing changes
+The new level is added to the random rotation and the debug level picker automatically.
 
-The service worker caches aggressively: after changing any file, bump the
-`CACHE` version string in `sw.js` so installed players get the update.
+## Tests
+
+```bash
+bash tests/run-tests.sh              # unit + release consistency
+bash tests/integration/run-smoke.sh  # boots every level
+bash tests/perf/run-perf.sh          # performance budgets
+```
+
+Details are in [tests/README.md](tests/README.md).
+
+## Releasing
+
+Bump `GAME_VERSION` in `js/config.js` and set `CACHE` in `sw.js` to `'voidrush-' + GAME_VERSION`. The tests check that they match. Changing `CACHE` is what makes installed copies download the update.
